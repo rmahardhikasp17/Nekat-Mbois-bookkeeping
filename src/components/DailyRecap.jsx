@@ -1,10 +1,21 @@
-
-import React, { useState } from 'react';
-import { Calendar, Download, Eye, User, DollarSign } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Download, User, DollarSign, Edit, Trash } from 'lucide-react';
 import { formatCurrency, exportDailyRecapToExcel } from '../utils/dataManager';
 
-const DailyRecap = ({ businessData }) => {
+const DailyRecap = ({ businessData, updateBusinessData }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Transaction form state (add/edit)
+  const [txId, setTxId] = useState(null);
+  const [txDate, setTxDate] = useState(selectedDate);
+  const [txType, setTxType] = useState('');
+  const [txDesc, setTxDesc] = useState('');
+  const [txAmount, setTxAmount] = useState('');
+
+  useEffect(() => {
+    // Keep form date in sync with selectedDate when not editing
+    if (txId === null) setTxDate(selectedDate);
+  }, [selectedDate, txId]);
 
   const getEmployeeName = (employeeId) => {
     const employee = businessData.employees.find(emp => emp.id === employeeId);
@@ -139,6 +150,69 @@ const DailyRecap = ({ businessData }) => {
 
   const handleExport = () => {
     exportDailyRecapToExcel(dailyRecords, businessData, selectedDate);
+  };
+
+  // Transactions by selected date
+  const transactions = Object.values(businessData.transactions || {}).filter((t) => t.date === selectedDate);
+  const incomeTotal = transactions.filter(t => t.type === 'Pemasukan').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+  const expenseTotal = transactions.filter(t => t.type === 'Pengeluaran').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+  const netTotal = incomeTotal - expenseTotal;
+
+  const resetTxForm = () => {
+    setTxId(null);
+    setTxDate(selectedDate);
+    setTxType('');
+    setTxDesc('');
+    setTxAmount('');
+  };
+
+  const handleTxSubmit = (e) => {
+    e.preventDefault();
+    if (!updateBusinessData) {
+      alert('Update function not provided');
+      return;
+    }
+    if (!txType || !txDesc || !txAmount) {
+      alert('Lengkapi semua field transaksi');
+      return;
+    }
+    const amountNum = parseFloat(txAmount);
+    if (isNaN(amountNum) || amountNum < 0) {
+      alert('Nominal tidak valid');
+      return;
+    }
+
+    const currentMap = businessData.transactions || {};
+
+    if (txId) {
+      const updated = { ...currentMap, [txId]: { id: txId, date: txDate, type: txType, description: txDesc, amount: amountNum } };
+      updateBusinessData({ transactions: updated });
+      alert('Transaksi diperbarui');
+    } else {
+      const id = Date.now().toString();
+      const newTx = { id, date: txDate, type: txType, description: txDesc, amount: amountNum };
+      const updated = { ...currentMap, [id]: newTx };
+      updateBusinessData({ transactions: updated });
+      alert('Transaksi ditambahkan');
+    }
+    resetTxForm();
+  };
+
+  const startEditTx = (tx) => {
+    setTxId(tx.id);
+    setTxDate(tx.date);
+    setTxType(tx.type);
+    setTxDesc(tx.description);
+    setTxAmount(String(tx.amount));
+  };
+
+  const deleteTx = (id) => {
+    if (!updateBusinessData) return;
+    if (!window.confirm('Hapus transaksi ini?')) return;
+    const currentMap = businessData.transactions || {};
+    const updated = { ...currentMap };
+    delete updated[id];
+    updateBusinessData({ transactions: updated });
   };
 
   return (
@@ -369,6 +443,76 @@ const DailyRecap = ({ businessData }) => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Transactions (CRUD) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-800">Transaksi untuk {new Date(selectedDate).toLocaleDateString('id-ID')}</h3>
+          <div className="text-sm text-gray-600">
+            <span className="mr-4">Pemasukan: <span className="font-semibold text-green-600">{formatCurrency(incomeTotal)}</span></span>
+            <span className="mr-4">Pengeluaran: <span className="font-semibold text-red-600">{formatCurrency(expenseTotal)}</span></span>
+            <span>Net: <span className="font-semibold">{formatCurrency(netTotal)}</span></span>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Add/Edit Form */}
+          <form onSubmit={handleTxSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal</label>
+              <input type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipe</label>
+              <select value={txType} onChange={(e) => setTxType(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                <option value="">Pilih tipe</option>
+                <option value="Pemasukan">Pemasukan</option>
+                <option value="Pengeluaran">Pengeluaran</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
+              <input type="text" value={txDesc} onChange={(e) => setTxDesc(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Deskripsi transaksi" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nominal</label>
+              <input type="number" value={txAmount} onChange={(e) => setTxAmount(e.target.value)} min="0" step="1000" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="0" required />
+              {txAmount && <p className="text-xs text-gray-500 mt-1">{formatCurrency(parseFloat(txAmount) || 0)}</p>}
+            </div>
+            <div className="md:col-span-5 flex items-center gap-3">
+              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                {txId ? 'Update Transaksi' : 'Tambah Transaksi'}
+              </button>
+              {txId && (
+                <button type="button" onClick={resetTxForm} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">Batal</button>
+              )}
+            </div>
+          </form>
+
+          {/* List */}
+          {transactions.length === 0 ? (
+            <div className="text-center text-gray-600">Belum ada transaksi pada tanggal ini</div>
+          ) : (
+            <div className="space-y-3">
+              {transactions
+                .sort((a, b) => String(a.description).localeCompare(String(b.description)))
+                .map((tx) => (
+                  <div key={tx.id} className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div>
+                      <p className="font-medium text-gray-800">{tx.description}</p>
+                      <p className="text-xs text-gray-500">{tx.date} • {tx.type}</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className={`font-semibold ${tx.type === 'Pemasukan' ? 'text-green-600' : 'text-red-600'}`}>{tx.type === 'Pemasukan' ? '+' : '-'} {formatCurrency(tx.amount)}</span>
+                      <button onClick={() => startEditTx(tx)} className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" aria-label="Edit transaksi"><Edit size={18} /></button>
+                      <button onClick={() => deleteTx(tx.id)} className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors" aria-label="Hapus transaksi"><Trash size={18} /></button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

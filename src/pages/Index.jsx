@@ -63,7 +63,7 @@ const Index = () => {
       case 'transactions':
         return <TransactionForm businessData={businessData} updateBusinessData={updateBusinessData} />;
       case 'daily-recap':
-        return <DailyRecap businessData={businessData} />;
+        return <DailyRecap businessData={businessData} updateBusinessData={updateBusinessData} />;
       case 'monthly-report':
         return <MonthlyReport businessData={businessData} />;
       case 'settings':
