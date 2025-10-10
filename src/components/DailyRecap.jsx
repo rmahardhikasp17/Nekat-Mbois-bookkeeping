@@ -477,7 +477,6 @@ const DailyRecap = ({ businessData, updateBusinessData }) => {
         )}
       </div>
 
-      {/* Note: Create daily records hanya di halaman Daily Input */}
     </div>
   );
 };
