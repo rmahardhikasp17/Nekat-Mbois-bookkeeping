@@ -1,3 +1,4 @@
+// [ORPHAN] Belum diintegrasikan ke router. Review di Fase 6.
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Save, Trash2, Calendar, DollarSign, TrendingDown, Users, PiggyBank, Package } from 'lucide-react';
 import { formatCurrency } from '../utils/dataManager';

@@ -1,4 +1,4 @@
-
+// [ORPHAN] Belum diintegrasikan ke router. Review di Fase 6.
 import React, { useState } from 'react';
 import { Package, Plus, Edit2, Trash2, Save, X } from 'lucide-react';
 import { formatCurrency } from '../utils/dataManager';

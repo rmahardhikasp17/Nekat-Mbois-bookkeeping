@@ -1,7 +1,13 @@
-
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Save, X, User } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, User, Crown } from 'lucide-react';
 import { toast } from 'sonner';
+import { generateId } from '@/utils/idGenerator';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
 interface Employee {
   id: string;
@@ -11,6 +17,7 @@ interface Employee {
 
 interface BusinessData {
   employees: Employee[];
+  [key: string]: unknown;
 }
 
 interface EmployeeManagerProps {
@@ -21,63 +28,44 @@ interface EmployeeManagerProps {
 const EmployeeManager: React.FC<EmployeeManagerProps> = ({ businessData, updateBusinessData }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ 
-    name: '', 
-    role: ''
-  });
+  const [formData, setFormData] = useState({ name: '', role: '' });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.role) return;
-
     const newEmployee: Employee = {
-      id: Date.now().toString(),
+      id: generateId(),
       name: formData.name.trim(),
-      role: formData.role
+      role: formData.role,
     };
-
-    const updatedEmployees = [...businessData.employees, newEmployee];
-    updateBusinessData({ employees: updatedEmployees });
-    
+    updateBusinessData({ employees: [...businessData.employees, newEmployee] });
     setFormData({ name: '', role: '' });
     setIsAdding(false);
-    toast.success('Employee added successfully!');
+    toast.success('Karyawan berhasil ditambahkan');
   };
 
   const handleEdit = (employee: Employee) => {
     setEditingId(employee.id);
-    setFormData({ 
-      name: employee.name,
-      role: employee.role || ''
-    });
+    setFormData({ name: employee.name, role: employee.role });
   };
 
   const handleUpdate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.role) return;
-
-    const updatedEmployees = businessData.employees.map(employee =>
-      employee.id === editingId
-        ? { 
-            ...employee, 
-            name: formData.name.trim(),
-            role: formData.role
-          }
-        : employee
+    const updated = businessData.employees.map(emp =>
+      emp.id === editingId
+        ? { ...emp, name: formData.name.trim(), role: formData.role }
+        : emp
     );
-
-    updateBusinessData({ employees: updatedEmployees });
+    updateBusinessData({ employees: updated });
     setEditingId(null);
     setFormData({ name: '', role: '' });
-    toast.success('Employee updated successfully!');
+    toast.success('Data karyawan diperbarui');
   };
 
   const handleDelete = (employeeId: string) => {
-    if (window.confirm('Are you sure you want to delete this employee?')) {
-      const updatedEmployees = businessData.employees.filter(employee => employee.id !== employeeId);
-      updateBusinessData({ employees: updatedEmployees });
-      toast.success('Employee deleted successfully!');
-    }
+    const updated = businessData.employees.filter(emp => emp.id !== employeeId);
+    updateBusinessData({ employees: updated });
+    toast.success('Karyawan dihapus');
   };
 
   const handleCancel = () => {
@@ -86,32 +74,36 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ businessData, updateB
     setFormData({ name: '', role: '' });
   };
 
-  const renderForm = (onSubmit: (e: React.FormEvent) => void) => (
-    <form onSubmit={onSubmit} className="space-y-6">
+  const inputClass =
+    'w-full rounded-lg bg-muted border border-border px-3 py-3 text-foreground ' +
+    'placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring ' +
+    'text-base min-h-[48px]';
+
+  const selectClass =
+    'w-full rounded-lg bg-muted border border-border px-3 py-3 text-foreground ' +
+    'focus:outline-none focus:ring-2 focus:ring-ring text-base min-h-[48px] ' +
+    'appearance-none';
+
+  const EmployeeForm = ({ onSubmit }: { onSubmit: (e: React.FormEvent) => void }) => (
+    <form onSubmit={onSubmit} className="space-y-3">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
-          Nama
-        </label>
+        <label className="block text-xs font-medium text-muted-foreground mb-1.5">Nama</label>
         <input
           type="text"
           value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="e.g., John Doe"
-          className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white font-inter"
-          style={{ borderColor: '#D1D5DB' }}
+          onChange={e => setFormData({ ...formData, name: e.target.value })}
+          placeholder="Contoh: Budi"
+          className={inputClass}
           required
+          autoFocus
         />
       </div>
-
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
-          Role
-        </label>
+        <label className="block text-xs font-medium text-muted-foreground mb-1.5">Role</label>
         <select
           value={formData.role}
-          onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-          className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white font-inter"
-          style={{ borderColor: '#D1D5DB' }}
+          onChange={e => setFormData({ ...formData, role: e.target.value })}
+          className={selectClass}
           required
         >
           <option value="">Pilih Role</option>
@@ -119,127 +111,135 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ businessData, updateB
           <option value="Karyawan">Karyawan</option>
         </select>
       </div>
-
-      <div className="flex space-x-4 pt-4">
-        <button
-          type="submit"
-          className="flex items-center space-x-2 text-white px-6 py-3 rounded-lg hover:opacity-90 transition-colors font-medium font-inter"
-          style={{ backgroundColor: '#3B82F6' }}
-        >
-          <Save size={18} />
-          <span>Save</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleCancel}
-          className="flex items-center space-x-2 bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-colors font-medium font-inter"
-        >
-          <X size={18} />
-          <span>Cancel</span>
-        </button>
+      <div className="flex gap-2 pt-1">
+        <Button type="submit" size="sm" className="flex-1 min-h-[48px]">
+          <Save className="w-4 h-4 mr-1.5" /> Simpan
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={handleCancel} className="min-h-[48px] px-4">
+          <X className="w-4 h-4" />
+        </Button>
       </div>
     </form>
   );
 
   return (
-    <div className="space-y-8 font-inter" style={{ backgroundColor: '#FFFFFF' }}>
+    <div className="space-y-4">
       {/* Header */}
-      <div className="rounded-xl shadow-sm p-8 border" style={{ backgroundColor: '#F5F5F5', borderColor: '#D1D5DB' }}>
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 font-inter">Employee Manager</h2>
-            <p className="text-gray-600 mt-2 font-inter">Manage your business employees</p>
-          </div>
-          {!isAdding && (
-            <button
-              onClick={() => setIsAdding(true)}
-              className="flex items-center space-x-2 text-white px-6 py-3 rounded-lg hover:opacity-90 transition-colors font-medium font-inter"
-              style={{ backgroundColor: '#3B82F6' }}
-            >
-              <Plus size={20} />
-              <span>Add New Employee</span>
-            </button>
-          )}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <User className="w-5 h-5 text-primary" />
+          <span className="text-sm text-muted-foreground">
+            {businessData.employees.length} karyawan
+          </span>
         </div>
+        {!isAdding && (
+          <Button onClick={() => setIsAdding(true)} size="sm" className="gap-1.5 min-h-[44px]">
+            <Plus className="w-4 h-4" />
+            Tambah Karyawan
+          </Button>
+        )}
       </div>
 
-      {/* Add Employee Form */}
+      {/* Add Form */}
       {isAdding && (
-        <div className="rounded-xl shadow-sm p-8 border" style={{ backgroundColor: '#F5F5F5', borderColor: '#D1D5DB' }}>
-          <h3 className="text-lg font-semibold text-gray-800 mb-6 font-inter">Add New Employee</h3>
-          {renderForm(handleSubmit)}
+        <div className="bg-card rounded-xl border border-border p-4 space-y-1">
+          <h3 className="font-semibold text-sm text-foreground mb-3">Tambah Karyawan Baru</h3>
+          <EmployeeForm onSubmit={handleSubmit} />
         </div>
       )}
 
-      {/* Employees List */}
-      <div className="rounded-xl shadow-sm border" style={{ backgroundColor: '#F5F5F5', borderColor: '#D1D5DB' }}>
-        <div className="p-8 border-b" style={{ borderColor: '#D1D5DB' }}>
-          <h3 className="text-lg font-semibold text-gray-800 font-inter">
-            Current Employees ({businessData.employees.length})
-          </h3>
+      {/* Employee List */}
+      {businessData.employees.length === 0 && !isAdding ? (
+        <div className="bg-card rounded-xl border border-border p-10 text-center">
+          <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+            <User className="text-muted-foreground w-6 h-6" />
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">Belum ada karyawan</p>
+          <Button onClick={() => setIsAdding(true)} size="sm" className="min-h-[48px]">
+            <Plus className="w-4 h-4 mr-1.5" /> Tambah Karyawan Pertama
+          </Button>
         </div>
-        
-        {businessData.employees.length === 0 ? (
-          <div className="p-12 text-center">
-            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-              <User className="text-gray-400" size={32} />
-            </div>
-            <h4 className="text-lg font-medium text-gray-600 mb-2 font-inter">No employees yet</h4>
-            <p className="text-gray-500 mb-6 font-inter">Add your first employee to get started</p>
-            <button
-              onClick={() => setIsAdding(true)}
-              className="text-white px-6 py-3 rounded-lg hover:opacity-90 transition-colors font-medium font-inter"
-              style={{ backgroundColor: '#3B82F6' }}
+      ) : (
+        <div className="space-y-2">
+          {businessData.employees.map(employee => (
+            <div
+              key={employee.id}
+              className="bg-card rounded-xl border border-border transition-colors active:bg-accent/20"
             >
-              Add New Employee
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-8">
-            {businessData.employees.map((employee) => (
-              <div key={employee.id} className="bg-white border rounded-lg p-6 shadow-sm" style={{ borderColor: '#D1D5DB' }}>
-                {editingId === employee.id ? (
-                  <div>
-                    <h4 className="text-lg font-medium text-gray-800 mb-4 font-inter">Edit Employee</h4>
-                    {renderForm(handleUpdate)}
+              {editingId === employee.id ? (
+                <div className="p-4">
+                  <p className="text-xs text-muted-foreground mb-3">Edit: {employee.name}</p>
+                  <EmployeeForm onSubmit={handleUpdate} />
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-4">
+                  {/* Avatar + Info */}
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                      employee.role === 'Owner'
+                        ? 'bg-primary/15'
+                        : 'bg-muted'
+                    }`}>
+                      {employee.role === 'Owner'
+                        ? <Crown className="w-5 h-5 text-primary" />
+                        : <User className="w-5 h-5 text-muted-foreground" />
+                      }
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm text-foreground truncate">{employee.name}</p>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        employee.role === 'Owner'
+                          ? 'bg-primary/15 text-primary'
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {employee.role || '—'}
+                      </span>
+                    </div>
                   </div>
-                ) : (
-                  <>
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                        <User className="text-blue-600" size={24} />
-                      </div>
-                      <div>
-                        <h4 className="text-lg font-medium text-gray-800 font-inter">{employee.name}</h4>
-                        <span className={`text-xs px-3 py-1 rounded-full font-medium font-inter ${
-                          employee.role === 'Owner' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {employee.role || 'No Role'}
-                        </span>
-                      </div>
-                    </div>
 
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleEdit(employee)}
-                        className="flex items-center space-x-1 p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors text-sm"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(employee.id)}
-                        className="flex items-center space-x-1 p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors text-sm"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 shrink-0 ml-2">
+                    <button
+                      onClick={() => handleEdit(employee)}
+                      className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-muted-foreground active:bg-accent/30 transition-colors"
+                      aria-label={`Edit ${employee.name}`}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-destructive active:bg-destructive/10 transition-colors"
+                          aria-label={`Hapus ${employee.name}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Hapus karyawan ini?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            <strong>{employee.name}</strong> ({employee.role}) akan dihapus permanen beserta riwayat yang terkait.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Batal</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(employee.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Hapus
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

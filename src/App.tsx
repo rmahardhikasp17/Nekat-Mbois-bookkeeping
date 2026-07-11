@@ -4,26 +4,28 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { toast } from "@/hooks/use-toast";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+
 
 const queryClient = new QueryClient();
 
 const App = () => {
+  // Request persistent storage agar IndexedDB tidak mudah dihapus browser
+  // saat storage device hampir penuh (terutama penting untuk Android PWA).
   useEffect(() => {
-    const askPersist = async () => {
-      try {
-        if (navigator.storage && navigator.storage.persist) {
-          const persisted = await navigator.storage.persist();
-          if (persisted) {
-            toast({ title: "Penyimpanan persisten aktif", description: "IndexedDB tidak akan mudah dihapus saat ruang rendah." });
-          }
+    if ('storage' in navigator && 'persist' in navigator.storage) {
+      navigator.storage.persist().then((granted) => {
+        if (!granted) {
+          console.warn(
+            '[Storage] Persistent storage tidak diberikan — data mungkin dihapus browser saat storage penuh'
+          );
         }
-      } catch (_) {}
-    };
-    askPersist();
+      }).catch(() => {});
+    }
   }, []);
+
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -36,6 +38,7 @@ const App = () => {
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <PWAInstallPrompt />
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>

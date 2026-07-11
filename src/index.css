@@ -4,139 +4,143 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Barbershop Design System */
+/* ─── Nekat Mbois Design System — Dark Android-first ────────────────────────── */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 216 19% 26%;
+    /* Dark barbershop theme sebagai default (tidak perlu class .dark) */
+    /* Background: dark navy #1a1a2e → hsl(240 28% 14%) */
+    --background: 240 28% 9%;
+    --foreground: 210 20% 92%;
 
-    --card: 210 20% 96%;
-    --card-foreground: 216 19% 26%;
+    /* Card: sedikit lebih terang dari background */
+    --card: 240 24% 13%;
+    --card-foreground: 210 20% 92%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 216 19% 26%;
+    --popover: 240 24% 13%;
+    --popover-foreground: 210 20% 92%;
 
-    --primary: 217 91% 60%;
+    /* Primary: merah barbershop */
+    --primary: 0 75% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 216 19% 26%;
+    --secondary: 240 20% 20%;
+    --secondary-foreground: 210 20% 85%;
 
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 240 18% 18%;
+    --muted-foreground: 215 14% 55%;
 
-    --accent: 210 20% 96%;
-    --accent-foreground: 216 19% 26%;
+    /* Accent: sedikit lebih terang untuk hover/active */
+    --accent: 240 18% 22%;
+    --accent-foreground: 210 20% 92%;
 
-    --destructive: 0 84% 60%;
+    /* Destructive: merah terang */
+    --destructive: 0 84% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 82%;
-    --input: 220 13% 82%;
-    --ring: 217 91% 60%;
+    --border: 240 18% 22%;
+    --input: 240 18% 22%;
+    --ring: 0 75% 55%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    /* Sidebar (tidak terlalu dipakai di mobile) */
+    --sidebar-background: 240 28% 9%;
+    --sidebar-foreground: 210 20% 92%;
+    --sidebar-primary: 0 75% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 240 18% 22%;
+    --sidebar-accent-foreground: 210 20% 92%;
+    --sidebar-border: 240 18% 22%;
+    --sidebar-ring: 0 75% 55%;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+    /* Hapus tap highlight bawaan Android Chrome */
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+  }
+
+  html {
+    /* Cegah font scaling yang menyebabkan zoom di iOS */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
-    @apply bg-barbershop-cream text-gray-700 font-poppins;
-    background: linear-gradient(135deg, #FEF7ED 0%, #FFFFFF 100%);
+    @apply bg-background text-foreground font-sans;
+    /* Smooth scrolling dan overscroll behavior untuk feel native */
+    overscroll-behavior: none;
+    /* Mencegah text selection tidak sengaja saat scroll cepat */
+    -webkit-user-select: none;
+    user-select: none;
+    /* Font size minimum 14px untuk body — mencegah zoom otomatis */
+    font-size: 14px;
+    line-height: 1.6;
   }
+
+  /* Input/textarea boleh di-select */
+  input, textarea, [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+    /* Font min 16px di input — mencegah auto-zoom di iOS Safari */
+    font-size: 16px !important;
+  }
+
+  /* Semua interactive element: touch feedback via active state */
+  button, [role="button"] {
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+
+  h1, h2, h3 { @apply font-semibold; }
 }
 
-/* Barbershop specific utilities */
+/* ─── Barbershop Component Utilities ─────────────────────────────────────────── */
 @layer utilities {
-  .barbershop-card {
-    @apply bg-white border border-gray-200 rounded-xl shadow-sm;
-  }
-  
-  .barbershop-btn-primary {
-    @apply bg-barbershop-blue text-white hover:bg-blue-700 transition-all duration-200 hover:scale-105;
-  }
-  
-  .barbershop-btn-secondary {
-    @apply bg-barbershop-red text-white hover:bg-red-700 transition-all duration-200 hover:scale-105;
+  /* Card standar dengan touch feedback */
+  .touch-card {
+    @apply bg-card rounded-xl border border-border p-4 transition-colors duration-100;
+    @apply active:bg-accent/30;
   }
 
-  .barbershop-input {
-    @apply border-gray-300 rounded-lg focus:ring-2 focus:ring-barbershop-blue focus:border-transparent bg-white;
+  /* Tombol list item dengan minimum touch target 48px */
+  .touch-item {
+    @apply flex items-center gap-3 min-h-[48px] px-4 py-3;
+    @apply active:bg-accent/20 transition-colors duration-100;
   }
 
+  /* Badge merah barbershop */
+  .badge-red {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+    @apply bg-primary/15 text-primary;
+  }
+
+  /* Input field dengan ukuran aman */
+  .mobile-input {
+    @apply w-full rounded-lg bg-input border border-border px-3 py-2.5 text-foreground;
+    @apply placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring;
+    @apply min-h-[48px];
+  }
+
+  /* Divider */
+  .divider { @apply border-t border-border my-4; }
+
+  /* Barbershop gradient accent (untuk elemen dekoratif) */
   .barbershop-gradient {
-    background: linear-gradient(135deg, #1D4ED8 0%, #DC2626 50%, #1D4ED8 100%);
+    background: linear-gradient(135deg, #1a1a2e 0%, #2d1b4e 50%, #1a1a2e 100%);
+  }
+  
+  /* Accent merah untuk elemen highlight */
+  .accent-red {
+    @apply text-primary font-semibold;
   }
 
-  .barber-pole {
-    background: repeating-linear-gradient(
-      45deg,
-      #DC2626,
-      #DC2626 10px,
-      #FFFFFF 10px,
-      #FFFFFF 20px,
-      #1D4ED8 20px,
-      #1D4ED8 30px
-    );
-  }
-
-  .spacing-section {
-    @apply mb-8;
-  }
-
-  .spacing-element {
-    @apply mb-6;
-  }
-
-  .spacing-small {
-    @apply mb-4;
-  }
-
-  .hover-lift {
-    @apply transition-transform duration-200 hover:scale-105 hover:shadow-lg;
+  /* Safe spacing untuk bottom nav — pakai di konten utama */
+  .content-with-bottom-nav {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   }
 }
