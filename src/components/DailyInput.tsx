@@ -214,7 +214,7 @@ const DailyInput: React.FC<DailyInputProps> = ({ businessData, updateBusinessDat
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="pb-52">
+    <div className="pb-96">
 
       {/* ── SECTION 1: Tanggal ─────────────────────────────────────────────── */}
       <section className="mb-5">

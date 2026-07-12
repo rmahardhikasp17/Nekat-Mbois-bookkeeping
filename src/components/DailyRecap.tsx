@@ -196,22 +196,31 @@ const DailyRecap: React.FC<DailyRecapProps> = ({ businessData, updateBusinessDat
     return details;
   };
 
+  const dailyRecords = getDailyRecords(selectedDate);
+
+  const totalShareFromEmployeesOnDate = dailyRecords
+    .filter(r => r.employeeRole !== 'Owner')
+    .reduce((sum, r) => sum + (r.ownerShareFromEmployee ?? 0), 0);
+
   const calculateEmployeeSalary = (record: DailyRecord) => {
-    // v2.1: gunakan nilai yang sudah di-snapshot saat transaksi disimpan
+    const isOwner = record.employeeRole === 'Owner';
+    if (isOwner) {
+      const ownSalary = typeof record.calculatedSalary === 'number'
+        ? record.calculatedSalary
+        : (record.services as ServiceEntry[]).reduce((sum, e) => sum + e.subtotal, 0) + 
+          (record.bonusServices as BonusEntry[]).reduce((sum, e) => sum + e.subtotal, 0) - 
+          (record.savingsDeduction ?? 50000);
+      return { salary: ownSalary + totalShareFromEmployeesOnDate };
+    }
+
     if (typeof record.calculatedSalary === 'number') {
       return { salary: record.calculatedSalary };
     }
     // Fallback untuk record lama
-    const isOwner = record.employeeRole === 'Owner';
     const serviceRevenue = (record.services as ServiceEntry[]).reduce((sum, e) => sum + e.subtotal, 0);
     const bonusTotal = (record.bonusServices as BonusEntry[]).reduce((sum, e) => sum + e.subtotal, 0);
-    if (isOwner) {
-      return { salary: serviceRevenue + bonusTotal - (record.savingsDeduction ?? 50000) };
-    }
     return { salary: serviceRevenue * 0.5 + bonusTotal };
   };
-
-  const dailyRecords = getDailyRecords(selectedDate);
 
   const totalEmployeeRevenue = dailyRecords
     .filter(r => r.employeeRole !== 'Owner')
@@ -303,12 +312,12 @@ const DailyRecap: React.FC<DailyRecapProps> = ({ businessData, updateBusinessDat
           </div>
           <div className="bg-card rounded-xl shadow-sm p-4 md:p-6 border border-border">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center shrink-0">
                 <DollarSign className="text-emerald-400" size={24} />
               </div>
-              <div>
-                <p className="text-xs md:text-sm text-muted-foreground">Total Gaji Hari Ini</p>
-                <p className="text-xl md:text-2xl font-bold text-foreground">{formatCurrency(totalGaji)}</p>
+              <div className="min-w-0">
+                <p className="text-xs md:text-sm text-muted-foreground truncate">Total Gaji Hari Ini</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-foreground truncate">{formatCurrency(totalGaji)}</p>
               </div>
             </div>
           </div>
@@ -344,28 +353,28 @@ const DailyRecap: React.FC<DailyRecapProps> = ({ businessData, updateBusinessDat
                       <h4 className="text-base md:text-lg font-semibold text-foreground">{getEmployeeName(record.employeeId)}</h4>
                       <p className="text-xs md:text-sm text-muted-foreground">{isOwner ? 'Owner' : 'Employee'}</p>
                     </div>
-                    <div className="text-left lg:text-right w-full lg:w-auto">
-                      <p className="text-lg md:text-xl font-bold text-blue-400 mb-2 md:mb-3">Gaji: {formatCurrency(salaryData.salary)}</p>
-                      <div className="text-xs md:text-sm text-muted-foreground space-y-1 bg-blue-950/20 p-3 md:p-4 rounded-lg border border-blue-500/20 w-full lg:max-w-md">
+                    <div className="text-left lg:text-right w-full lg:w-auto min-w-0">
+                      <p className="text-base sm:text-lg md:text-xl font-bold text-blue-400 mb-2 md:mb-3 truncate">Gaji: {formatCurrency(salaryData.salary)}</p>
+                      <div className="text-xs sm:text-sm text-muted-foreground space-y-1 bg-blue-950/20 p-3 md:p-4 rounded-lg border border-blue-500/20 w-full lg:max-w-md">
                         <p className="font-semibold text-foreground mb-2">Rinciannya:</p>
                         {isOwner ? (
-                          <>
-                            <div className="flex justify-between"><span>+ Pendapatan Layanan:</span><span className="text-emerald-400">{formatCurrency(record.totalRevenue)}</span></div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-center gap-4"><span className="truncate">+ Pendapatan Layanan:</span><span className="text-emerald-400 shrink-0 font-medium">{formatCurrency(record.totalRevenue)}</span></div>
                             {record.bonusServices.length > 0 && (
-                              <div className="flex justify-between"><span>+ Bonus:</span><span className="text-emerald-400">{formatCurrency(record.totalBonus)}</span></div>
+                              <div className="flex justify-between items-center gap-4"><span className="truncate">+ Bonus:</span><span className="text-emerald-400 shrink-0 font-medium">{formatCurrency(record.totalBonus)}</span></div>
                             )}
-                            {record.ownerShareFromEmployee > 0 && (
-                              <div className="flex justify-between"><span>+ Share dari Karyawan:</span><span className="text-emerald-400">{formatCurrency(record.ownerShareFromEmployee)}</span></div>
+                            {totalShareFromEmployeesOnDate > 0 && (
+                              <div className="flex justify-between items-center gap-4"><span className="truncate">+ Share dari Karyawan:</span><span className="text-emerald-400 shrink-0 font-medium">{formatCurrency(totalShareFromEmployeesOnDate)}</span></div>
                             )}
-                            <div className="flex justify-between"><span>- Tabungan Harian:</span><span className="text-red-400">-{formatCurrency(record.savingsDeduction)}</span></div>
-                          </>
+                            <div className="flex justify-between items-center gap-4"><span className="truncate">- Tabungan Harian:</span><span className="text-red-400 shrink-0 font-medium">-{formatCurrency(record.savingsDeduction)}</span></div>
+                          </div>
                         ) : (
-                          <>
-                            <div className="flex justify-between"><span>+ Bagian Karyawan:</span><span className="text-emerald-400">{formatCurrency(record.employeeRevenue)}</span></div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-center gap-4"><span className="truncate">+ Bagian Karyawan:</span><span className="text-emerald-400 shrink-0 font-medium">{formatCurrency(record.employeeRevenue)}</span></div>
                             {record.bonusServices.length > 0 && (
-                              <div className="flex justify-between"><span>+ Bonus:</span><span className="text-emerald-400">{formatCurrency(record.totalBonus)}</span></div>
+                              <div className="flex justify-between items-center gap-4"><span className="truncate">+ Bonus:</span><span className="text-emerald-400 shrink-0 font-medium">{formatCurrency(record.totalBonus)}</span></div>
                             )}
-                          </>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -499,9 +508,9 @@ const DailyRecap: React.FC<DailyRecapProps> = ({ businessData, updateBusinessDat
             })}
 
             <div className="p-6 md:p-8 bg-blue-500/5 border-t border-border">
-              <div className="flex justify-between items-center">
-                <span className="text-base md:text-lg font-semibold text-foreground">Total Gaji Hari Ini:</span>
-                <span className="text-2xl md:text-3xl font-bold text-blue-400">{formatRupiah(totalGaji)}</span>
+              <div className="flex justify-between items-center gap-4">
+                <span className="text-sm sm:text-base md:text-lg font-semibold text-foreground truncate">Total Gaji Hari Ini:</span>
+                <span className="text-xl sm:text-2xl md:text-3xl font-bold text-blue-400 truncate">{formatRupiah(totalGaji)}</span>
               </div>
             </div>
           </div>

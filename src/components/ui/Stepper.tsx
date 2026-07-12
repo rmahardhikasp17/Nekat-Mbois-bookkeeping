@@ -32,14 +32,22 @@ export function Stepper({ value, onChange, min = 0, max = 99, className }: Stepp
         <Minus className="w-4 h-4" />
       </button>
 
-      <span
+      <input
+        type="number"
+        pattern="[0-9]*"
+        inputMode="numeric"
+        value={value === 0 ? '' : value}
+        onChange={(e) => {
+          const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+          if (!isNaN(val)) {
+            onChange(Math.max(min, Math.min(max, val)));
+          }
+        }}
         className={cn(
-          'min-w-[2rem] text-center text-base font-bold tabular-nums',
+          'w-12 h-10 border border-border rounded-lg text-center text-base font-bold bg-transparent text-foreground focus:outline-none focus:ring-1 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
           value > 0 ? 'text-primary' : 'text-muted-foreground'
         )}
-      >
-        {value}
-      </span>
+      />
 
       <button
         type="button"

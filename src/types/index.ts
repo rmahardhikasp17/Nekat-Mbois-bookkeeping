@@ -85,7 +85,7 @@ export interface DailyRecord {
 export interface Transaction {
   id: string;
   date: string;
-  type: 'income' | 'expense';
+  type: 'Pemasukan' | 'Pengeluaran';
   category: string;
   description: string;
   amount: number;
@@ -109,6 +109,16 @@ export interface BusinessData {
   dailyRecords: DailyRecord[];
   transactions: Transaction[];
   monthlyOverrides: MonthlyOverride[];
+  products: any[];
+  productSales: any[];
+  sisaPendapatanRecords: any[];
+  urgentOverrides: Record<string, {
+    totalPendapatan?: number;
+    totalPengeluaran?: number;
+    totalGajiDibayarkan?: number;
+    tabunganOwner?: number;
+    pendapatanProduk?: number;
+  }>;
   lastSaved: string;
   version: string;
 }
@@ -120,6 +130,10 @@ export const DEFAULT_BUSINESS_DATA: BusinessData = {
   dailyRecords: [],
   transactions: [],
   monthlyOverrides: [],
+  products: [],
+  productSales: [],
+  sisaPendapatanRecords: [],
+  urgentOverrides: {},
   lastSaved: new Date().toISOString(),
   version: '2.1.0',
 };

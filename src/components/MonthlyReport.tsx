@@ -343,128 +343,114 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ businessData }) => {
       const XLSX = await import('xlsx');
       const workbook = XLSX.utils.book_new();
 
-      // Sheet 1: Ringkasan
+      // Sheet 1: Ringkasan (Hanya Menampilkan Data Penting)
       const summaryData = [
         ['LAPORAN BULANAN', selectedMonth],
         [''],
-        ['RINGKASAN KEUANGAN'],
-        ['Total Pendapatan', reportData.totalPendapatan],
-        ['Total Pengeluaran', reportData.totalPengeluaran],
-        ['Total Gaji Dibayarkan', reportData.totalGajiDibayarkan],
-        ['Gaji Owner (sebelum pengeluaran)', reportData.gajiOwner],
-        ['Pendapatan Bersih Owner', reportData.pendapatanBersihOwner],
+        ['RINGKASAN UTAMA'],
+        ['Total Pendapatan Jasa', reportData.totalPendapatan],
+        ['Total Pendapatan Produk', reportData.totalPendapatanProduk],
+        ['Total Pengeluaran Operasional', reportData.totalPengeluaran],
+        ['Total Gaji Karyawan', reportData.totalGajiKaryawan],
         ['Tabungan Owner', reportData.totalTabunganOwner],
-        ['Pendapatan Produk', reportData.totalPendapatanProduk],
+        ['Pendapatan Bersih Owner (Net)', reportData.pendapatanBersihOwner],
         [''],
-        ['AKTIVITAS'],
-        ['Hari Aktif', reportData.activeDays],
+        ['INFORMASI AKTIVITAS'],
+        ['Hari Kerja Aktif', reportData.activeDays],
         ['Karyawan Aktif', reportData.activeEmployees]
       ];
       const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
       XLSX.utils.book_append_sheet(workbook, summarySheet, 'Ringkasan');
 
       // Sheet 2: Gaji Karyawan
-      if (reportData.perEmployeeSalaries && reportData.perEmployeeSalaries.length > 0) {
-        const salaryData = [
-          ['Nama', 'Peran', 'Gaji Total', 'Bonus', 'Potongan', 'Status UMR'],
-          ...reportData.perEmployeeSalaries.map((emp: EmployeeSalary) => [
-            emp.name,
-            emp.role,
-            emp.gaji,
-            emp.bonus,
-            emp.potongan,
-            emp.gaji >= 2000000 ? 'Sesuai UMR' : 'Belum UMR'
-          ])
-        ];
-        const salarySheet = XLSX.utils.aoa_to_sheet(salaryData);
-        XLSX.utils.book_append_sheet(workbook, salarySheet, 'Gaji Karyawan');
-      }
+      const perEmployeeSalaries = reportData.perEmployeeSalaries || [];
+      const salaryData = [
+        ['Nama', 'Peran', 'Gaji Total', 'Bonus', 'Potongan', 'Status UMR'],
+        ...perEmployeeSalaries.map((emp: EmployeeSalary) => [
+          emp.name,
+          emp.role,
+          emp.gaji,
+          emp.bonus,
+          emp.potongan,
+          emp.gaji >= 2000000 ? 'Sesuai UMR' : 'Belum UMR'
+        ])
+      ];
+      const salarySheet = XLSX.utils.aoa_to_sheet(salaryData);
+      XLSX.utils.book_append_sheet(workbook, salarySheet, 'Gaji Karyawan');
 
-      // Sheet 3: Recap Harian Selama 1 Bulan
-      if (reportData.monthlyRecords && reportData.monthlyRecords.length > 0) {
-        const dailyData = [
-          ['Tanggal', 'Nama', 'Peran', 'Layanan Utama', 'Bonus', 'Pendapatan Murni', 'Gaji Final'],
-          ...reportData.monthlyRecords.map((record: any) => {
-            const employee = businessData.employees?.find(emp => emp.id === record.employeeId);
-            const serviceRevenue = Object.entries(record.services || {})
-              .reduce((sum, [serviceId, qty]) => {
-                return sum + calculateServiceTotal(serviceId, Number(qty));
-              }, 0);
-            const bonusTotal = calculateBonusTotal(record.bonusServices, record.bonusQuantities);
+      // Sheet 3: Recap Harian Selama 1 Bulan (Diperbaiki untuk format v2.1)
+      const monthlyRecords = reportData.monthlyRecords || [];
+      const dailyData = [
+        ['Tanggal', 'Nama', 'Peran', 'Layanan Utama', 'Bonus', 'Pendapatan Murni', 'Gaji Final'],
+        ...monthlyRecords.map((record: any) => {
+          const employee = businessData.employees?.find(emp => emp.id === record.employeeId);
+          const serviceRevenue = getServiceRevenue(record);
+          const bonusTotal = getBonusRevenue(record);
+          
+          let finalSalary = record.calculatedSalary;
+          if (record.employeeRole === 'Owner') {
+            // Dapatkan akumulasi share dari karyawan lain pada tanggal ini
+            const sharesOnDate = monthlyRecords
+              .filter((r: any) => r.date === record.date && r.employeeRole !== 'Owner')
+              .reduce((sum: number, r: any) => sum + (r.ownerShareFromEmployee ?? 0), 0);
             
-            // Calculate final salary
-            let finalSalary;
-            if (employee?.role === 'Owner') {
-              // Calculate owner's daily salary using breakdown formula
-              const employeeRecordsOnDate = reportData.monthlyRecords.filter((r: any) => 
-                r.date === record.date && 
-                businessData.employees?.find(emp => emp.id === r.employeeId)?.role === 'Karyawan'
-              );
-              
-              const employeeServiceRevenueOnDate = employeeRecordsOnDate.reduce((sum: number, empRecord: any) => {
-                return sum + Object.entries(empRecord.services || {})
-                  .reduce((serviceSum, [serviceId, qty]) => {
-                    return serviceSum + calculateServiceTotal(serviceId, Number(qty));
-                  }, 0);
-              }, 0);
-              
-              const ownerShareFromEmployees = employeeServiceRevenueOnDate * 0.5;
-              const dailySavings = 50000; // 50K tabungan harian
-              
-              finalSalary = serviceRevenue + bonusTotal + ownerShareFromEmployees - dailySavings;
-            } else {
+            const baseSalary = typeof finalSalary === 'number'
+              ? finalSalary
+              : serviceRevenue + bonusTotal - (record.savingsDeduction ?? 50000);
+            
+            finalSalary = baseSalary + sharesOnDate;
+          } else {
+            if (typeof finalSalary !== 'number') {
               finalSalary = serviceRevenue * 0.5 + bonusTotal;
             }
-            
-            return [
-              record.date,
-              employee?.name || 'Unknown',
-              employee?.role || 'Unknown',
-              serviceRevenue,
-              bonusTotal,
-              serviceRevenue,
-              finalSalary
-            ];
-          })
-        ];
-        const dailySheet = XLSX.utils.aoa_to_sheet(dailyData);
-        XLSX.utils.book_append_sheet(workbook, dailySheet, 'Recap Harian');
-      }
+          }
+          
+          return [
+            record.date,
+            record.employeeName ?? employee?.name ?? 'Unknown',
+            record.employeeRole ?? (employee?.role === 'Owner' ? 'Owner' : 'Karyawan'),
+            serviceRevenue,
+            bonusTotal,
+            serviceRevenue,
+            finalSalary
+          ];
+        })
+      ];
+      const dailySheet = XLSX.utils.aoa_to_sheet(dailyData);
+      XLSX.utils.book_append_sheet(workbook, dailySheet, 'Recap Harian');
 
-      // Sheet 4: Penjualan Produk
-      if (reportData.monthlyProductSales && reportData.monthlyProductSales.length > 0) {
-        const productData = [
-          ['Nama Produk', 'Jumlah Terjual', 'Total Penjualan', 'Tanggal'],
-          ...reportData.monthlyProductSales.map((sale: any) => [
-            sale.productName || 'Unknown Product',
-            sale.quantity || 0,
-            sale.total || 0,
-            sale.date
-          ])
-        ];
-        const productSheet = XLSX.utils.aoa_to_sheet(productData);
-        XLSX.utils.book_append_sheet(workbook, productSheet, 'Penjualan Produk');
-      }
+      // Sheet 4: Penjualan Produk (Selalu diekspor meskipun kosong)
+      const monthlyProductSales = reportData.monthlyProductSales || [];
+      const productData = [
+        ['Nama Produk', 'Jumlah Terjual', 'Total Penjualan', 'Tanggal'],
+        ...monthlyProductSales.map((sale: any) => [
+          sale.productName || 'Unknown Product',
+          sale.quantity || 0,
+          sale.total || 0,
+          sale.date
+        ])
+      ];
+      const productSheet = XLSX.utils.aoa_to_sheet(productData);
+      XLSX.utils.book_append_sheet(workbook, productSheet, 'Penjualan Produk');
 
-      // Sheet 5: Transaksi
-      if (reportData.monthlyTransactions && reportData.monthlyTransactions.length > 0) {
-        const transactionData = [
-          ['Tanggal', 'Tipe Transaksi', 'Deskripsi', 'Nominal'],
-          ...reportData.monthlyTransactions.map((transaction: any) => [
-            transaction.date,
-            transaction.type,
-            transaction.description,
-            transaction.amount
-          ])
-        ];
-        const transactionSheet = XLSX.utils.aoa_to_sheet(transactionData);
-        XLSX.utils.book_append_sheet(workbook, transactionSheet, 'Transaksi');
-      }
+      // Sheet 5: Transaksi (Selalu diekspor meskipun kosong)
+      const monthlyTransactions = reportData.monthlyTransactions || [];
+      const transactionData = [
+        ['Tanggal', 'Tipe Transaksi', 'Deskripsi', 'Nominal'],
+        ...monthlyTransactions.map((transaction: any) => [
+          transaction.date,
+          transaction.type,
+          transaction.description,
+          transaction.amount
+        ])
+      ];
+      const transactionSheet = XLSX.utils.aoa_to_sheet(transactionData);
+      XLSX.utils.book_append_sheet(workbook, transactionSheet, 'Transaksi');
 
       XLSX.writeFile(workbook, `Laporan_Bulanan_${selectedMonth}.xlsx`);
       toast.dismiss();
       toast.success('Excel file exported successfully with 5 sheets!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error exporting to Excel:', error);
       toast.dismiss();
       toast.error(`Failed to export to Excel: ${error.message}`);
@@ -542,7 +528,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ businessData }) => {
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full sm:w-auto px-3 md:px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm md:text-base"
+              className="w-full sm:w-auto px-3 md:px-4 py-2 border border-border rounded-lg bg-white text-black focus:ring-2 focus:ring-primary focus:border-transparent text-sm md:text-base"
             />
             <button
               onClick={calculateMonthlyReport}
@@ -562,12 +548,12 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ businessData }) => {
               const Icon = stat.icon;
               return (
                 <div key={index} className="bg-card rounded-xl shadow-sm p-4 md:p-6 border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs md:text-sm font-medium text-muted-foreground mb-1">{stat.title}</p>
-                      <p className="text-lg md:text-xl font-bold">{stat.value}</p>
+                  <div className="flex items-center justify-between min-w-0 gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs md:text-sm font-medium text-muted-foreground mb-1 truncate">{stat.title}</p>
+                      <p className="text-sm sm:text-base md:text-lg lg:text-xl font-bold truncate">{stat.value}</p>
                     </div>
-                    <div className={`${stat.color} p-3 rounded-lg`}>
+                    <div className={`${stat.color} p-3 rounded-lg shrink-0`}>
                       <Icon className="text-white" size={20} />
                     </div>
                   </div>
@@ -581,40 +567,40 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ businessData }) => {
             <div className="bg-card rounded-xl shadow-sm p-4 md:p-6 lg:p-8 border">
               <h3 className="text-base md:text-lg font-semibold mb-4 md:mb-6">👤 Breakdown Gaji Owner</h3>
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-muted rounded-lg">
-                    <div className="text-sm text-muted-foreground">Layanan Owner</div>
-                    <div className="font-bold text-emerald-400">{formatCurrency(reportData.ownerBreakdown.ownerServiceRevenue)}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-4 bg-muted rounded-lg min-w-0">
+                    <div className="text-xs sm:text-sm text-muted-foreground truncate">Layanan Owner</div>
+                    <div className="font-bold text-sm sm:text-base md:text-lg text-emerald-400 truncate">{formatCurrency(reportData.ownerBreakdown.ownerServiceRevenue)}</div>
                   </div>
-                  <div className="p-4 bg-muted rounded-lg">
-                    <div className="text-sm text-muted-foreground">Share dari Karyawan (50%)</div>
-                    <div className="font-bold text-emerald-400">{formatCurrency(reportData.ownerBreakdown.ownerShareFromKaryawan)}</div>
+                  <div className="p-4 bg-muted rounded-lg min-w-0">
+                    <div className="text-xs sm:text-sm text-muted-foreground truncate">Share dari Karyawan (50%)</div>
+                    <div className="font-bold text-sm sm:text-base md:text-lg text-emerald-400 truncate">{formatCurrency(reportData.ownerBreakdown.ownerShareFromKaryawan)}</div>
                   </div>
-                  <div className="p-4 bg-muted rounded-lg">
-                    <div className="text-sm text-muted-foreground">Bonus Owner</div>
-                    <div className="font-bold text-emerald-400">{formatCurrency(reportData.ownerBreakdown.ownerBonus)}</div>
+                  <div className="p-4 bg-muted rounded-lg min-w-0">
+                    <div className="text-xs sm:text-sm text-muted-foreground truncate">Bonus Owner</div>
+                    <div className="font-bold text-sm sm:text-base md:text-lg text-emerald-400 truncate">{formatCurrency(reportData.ownerBreakdown.ownerBonus)}</div>
                   </div>
-                  <div className="p-4 bg-muted rounded-lg">
-                    <div className="text-sm text-muted-foreground">Tabungan Harian (50K)</div>
-                    <div className="font-bold text-red-400">-{formatCurrency(reportData.ownerBreakdown.tabunganHarian)}</div>
+                  <div className="p-4 bg-muted rounded-lg min-w-0">
+                    <div className="text-xs sm:text-sm text-muted-foreground truncate">Tabungan Harian (50K)</div>
+                    <div className="font-bold text-sm sm:text-base md:text-lg text-red-400 truncate">-{formatCurrency(reportData.ownerBreakdown.tabunganHarian)}</div>
                   </div>
                 </div>
                 <div className="border-t pt-4 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-base">Gaji Owner (sebelum pengeluaran):</span>
-                    <span className="font-bold text-xl text-blue-400">
+                  <div className="flex justify-between items-center gap-4">
+                    <span className="font-semibold text-xs sm:text-sm md:text-base truncate">Gaji Owner (sebelum pengeluaran):</span>
+                    <span className="font-bold text-sm sm:text-base md:text-xl text-blue-400 shrink-0">
                       {formatCurrency(reportData.gajiOwner)}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-base text-red-400">Pengeluaran Bulanan:</span>
-                    <span className="font-bold text-xl text-red-400">
+                  <div className="flex justify-between items-center gap-4">
+                    <span className="font-semibold text-xs sm:text-sm md:text-base text-red-400 truncate">Pengeluaran Bulanan:</span>
+                    <span className="font-bold text-sm sm:text-base md:text-xl text-red-400 shrink-0">
                       -{formatCurrency(reportData.totalPengeluaran)}
                     </span>
                   </div>
-                  <div className="border border-emerald-500/20 pt-3 flex justify-between items-center bg-emerald-950/20 p-4 rounded-lg">
-                    <span className="font-bold text-lg">💰 Pendapatan Bersih Owner:</span>
-                    <span className="font-bold text-3xl text-emerald-400">
+                  <div className="border border-emerald-500/20 pt-3 flex justify-between items-center bg-emerald-950/20 p-4 rounded-lg gap-4">
+                    <span className="font-bold text-xs sm:text-sm md:text-base lg:text-lg truncate">💰 Pendapatan Bersih Owner:</span>
+                    <span className="font-bold text-base sm:text-lg md:text-2xl lg:text-3xl text-emerald-400 shrink-0">
                       {formatCurrency(reportData.pendapatanBersihOwner)}
                     </span>
                   </div>

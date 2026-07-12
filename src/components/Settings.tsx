@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Save, Building, Trash2, Download, Upload,
-  ShieldCheck, HardDrive, FilePlus2, FileOutput, AlarmClock, Info,
+  ShieldCheck, HardDrive, FilePlus2, FileOutput, AlarmClock, Info, BarChart3,
 } from 'lucide-react';
 import {
   downloadJSONBackup, importJSONFile, requestAutoBackupFile,
@@ -46,6 +46,7 @@ type PersistStatus = 'granted' | 'denied' | 'unsupported' | 'error' | null;
 interface SettingsProps {
   businessData: BusinessData;
   updateBusinessData: (data: Partial<BusinessData>) => void;
+  setCurrentPage?: (page: any) => void;
 }
 
 // ─── Section Card ──────────────────────────────────────────────────────────────
@@ -66,11 +67,13 @@ const SectionCard = ({ icon: Icon, title, children }: {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData }) => {
+const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData, setCurrentPage }) => {
   const [businessName, setBusinessName] = useState<string>(businessData.businessName);
   const [persistStatus, setPersistStatus] = useState<PersistStatus>(null);
   const [useGzip, setUseGzip] = useState<boolean>(getCompressionPreference());
   const [storageInfo, setStorageInfo] = useState<StorageEstimate | null>(null);
+  /** Draft bagi hasil lokal — nilai ini hanya di-commit ke storage saat user klik Simpan */
+  const [draftRates, setDraftRates] = useState<Record<string, number>>({});
 
   const lastBackupTs = useMemo<number | null>(() => {
     try { return Number(localStorage.getItem('autoBackupLastTs')) || null; } catch (_) { return null; }
@@ -185,13 +188,20 @@ const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData })
 
   const getTotalRecords = () => Array.isArray(businessData.dailyRecords) ? businessData.dailyRecords.length : 0;
 
-  /** Update employeeRate satu layanan dan simpan ke storage */
-  const handleUpdateRate = (serviceId: string, newRate: number) => {
+  /** Simpan draft rate ke storage untuk satu layanan */
+  const handleSaveRate = (serviceId: string) => {
+    const newRate = draftRates[serviceId] ?? businessData.services.find(s => s.id === serviceId)?.employeeRate ?? 50;
     updateBusinessData({
       services: businessData.services.map(s =>
         s.id === serviceId ? { ...s, employeeRate: newRate } : s
       ),
     });
+    toast.success('Bagi hasil berhasil disimpan');
+  };
+
+  /** Update draft lokal (belum disimpan ke storage) */
+  const handleDraftRate = (serviceId: string, val: number) => {
+    setDraftRates(prev => ({ ...prev, [serviceId]: val }));
   };
 
   // Filter layanan utama (bukan bonus)
@@ -201,7 +211,7 @@ const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData })
 
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-48">
       {/* Warning Banner */}
       {(nearQuota || staleBackup) && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
@@ -239,42 +249,54 @@ const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData })
           <p className="text-xs text-muted-foreground -mt-2">
             Perubahan hanya berlaku untuk transaksi <strong>baru</strong> — data historis tidak terpengaruh.
           </p>
-          <div className="space-y-4">
+          <div className="space-y-5">
             {mainServices.map(service => {
-              const empRate = service.employeeRate ?? 50;
-              const ownerRate = 100 - empRate;
-              const empAmount = Math.round(service.price * empRate / 100);
+              // Gunakan draft jika ada, fallback ke nilai yang tersimpan
+              const savedRate = service.employeeRate ?? 50;
+              const draftRate = draftRates[service.id] ?? savedRate;
+              const isDirty = draftRate !== savedRate;
+              const ownerRate = 100 - draftRate;
+              const empAmount = Math.round(service.price * draftRate / 100);
               const ownerAmount = service.price - empAmount;
               return (
-                <div key={service.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{service.name}</p>
+                <div key={service.id} className="bg-muted/40 rounded-xl p-3 space-y-2 border border-border">
+                  {/* Header: Nama & Input Persen */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{service.name}</p>
                       <p className="text-xs text-muted-foreground">Rp {service.price.toLocaleString('id-ID')}/layanan</p>
                     </div>
-                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                      empRate === 50 ? 'bg-muted text-muted-foreground'
-                      : empRate > 50 ? 'bg-primary/10 text-primary'
-                      : 'bg-amber-500/10 text-amber-400'
-                    }`}>
-                      {empRate}/{ownerRate}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={draftRate}
+                        onChange={e => {
+                          const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                          if (!isNaN(val)) handleDraftRate(service.id, Math.max(0, Math.min(100, val)));
+                        }}
+                        className="w-14 h-9 rounded-lg border border-border text-center text-sm font-bold bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+                        aria-label={`Persentase karyawan ${service.name}`}
+                      />
+                      <span className="text-xs text-muted-foreground font-semibold">/ {ownerRate}%</span>
+                    </div>
                   </div>
+
+                  {/* Preview Nominal */}
                   <div className="flex justify-between text-[11px] font-medium">
-                    <span className="text-primary">
-                      Karyawan {empRate}% = Rp {empAmount.toLocaleString('id-ID')}
-                    </span>
-                    <span className="text-amber-400">
-                      Owner {ownerRate}% = Rp {ownerAmount.toLocaleString('id-ID')}
-                    </span>
+                    <span className="text-primary">Karyawan {draftRate}% = Rp {empAmount.toLocaleString('id-ID')}</span>
+                    <span className="text-amber-400">Owner {ownerRate}% = Rp {ownerAmount.toLocaleString('id-ID')}</span>
                   </div>
+
+                  {/* Slider */}
                   <input
                     type="range"
                     min={0}
                     max={100}
                     step={1}
-                    value={empRate}
-                    onChange={e => handleUpdateRate(service.id, Number(e.target.value))}
+                    value={draftRate}
+                    onChange={e => handleDraftRate(service.id, Number(e.target.value))}
                     className="w-full h-2 rounded-full accent-primary cursor-pointer touch-manipulation"
                     aria-label={`Bagi hasil ${service.name}`}
                   />
@@ -283,6 +305,17 @@ const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData })
                     <span>50/50</span>
                     <span>100% karyawan</span>
                   </div>
+
+                  {/* Tombol Simpan — hanya aktif jika ada perubahan draft */}
+                  <Button
+                    size="sm"
+                    onClick={() => handleSaveRate(service.id)}
+                    disabled={!isDirty}
+                    className="w-full min-h-[44px] gap-2 mt-1"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    {isDirty ? 'Simpan Bagi Hasil' : 'Tersimpan'}
+                  </Button>
                 </div>
               );
             })}
@@ -303,6 +336,32 @@ const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData })
             </div>
           ))}
         </div>
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage?.('services')}
+            className="w-full min-h-[44px] gap-2 text-xs"
+          >
+            Kelola Layanan
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage?.('employees')}
+            className="w-full min-h-[44px] gap-2 text-xs"
+          >
+            Kelola Karyawan
+          </Button>
+        </div>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => setCurrentPage?.('visual-data')}
+          className="w-full min-h-[44px] gap-2 text-xs mt-2 bg-primary hover:bg-primary/95 text-primary-foreground font-semibold"
+        >
+          <BarChart3 className="w-4 h-4" /> Visualisasi Data (Diagram)
+        </Button>
       </SectionCard>
 
       {/* Backup & Export */}

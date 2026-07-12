@@ -12,9 +12,9 @@ import type { AppPage } from '@/components/BottomNav';
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 import { useBusinessData } from '@/hooks/useBusinessData';
 import type { BusinessData } from '@/types';
+import VisualData from '../components/VisualData';
 
-// ─── Halaman yang tidak muncul di BottomNav (navigasi kontekstual) ────────────
-type FullPage = AppPage | 'employees' | 'transactions';
+type FullPage = AppPage | 'employees' | 'transactions' | 'services' | 'visual-data';
 
 const PAGE_TITLES: Record<FullPage, string> = {
   'dashboard':      'Beranda',
@@ -24,6 +24,8 @@ const PAGE_TITLES: Record<FullPage, string> = {
   'settings':       'Pengaturan',
   'employees':      'Karyawan',
   'transactions':   'Transaksi',
+  'services':       'Layanan',
+  'visual-data':    'Visual Data',
 };
 
 const Index = () => {
@@ -69,7 +71,13 @@ const Index = () => {
       case 'monthly-report':
         return <MonthlyReport businessData={businessData} />;
       case 'settings':
-        return <Settings businessData={businessData} updateBusinessData={updateBusinessData} />;
+        return (
+          <Settings
+            businessData={businessData}
+            updateBusinessData={updateBusinessData}
+            setCurrentPage={(page: string) => setCurrentPage(page as FullPage)}
+          />
+        );
       // Halaman kontekstual (dipanggil dari Dashboard atau Settings)
       case 'employees':
         return <EmployeeManager businessData={businessData} updateBusinessData={updateBusinessData} />;
@@ -77,6 +85,13 @@ const Index = () => {
         return <TransactionForm businessData={businessData} updateBusinessData={updateBusinessData} />;
       case 'services':
         return <ServicesManager businessData={businessData} updateBusinessData={updateBusinessData} />;
+      case 'visual-data':
+        return (
+          <VisualData
+            businessData={businessData}
+            setCurrentPage={(page: string) => setCurrentPage(page as FullPage)}
+          />
+        );
       default:
         return (
           <Dashboard

@@ -4,7 +4,7 @@
 // Data di-persist di IndexedDB; localStorage tidak lagi digunakan sebagai
 // primary storage data bisnis.
 
-import type { BusinessData } from '@/types';
+import type { BusinessData, DailyRecord } from '@/types';
 import { DEFAULT_BUSINESS_DATA } from '@/types';
 
 const DB_NAME = 'nekat-mbois-db';

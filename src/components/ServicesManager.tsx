@@ -87,7 +87,7 @@ const ServicesManager: React.FC<ServicesManagerProps> = ({ businessData, updateB
     'text-base min-h-[48px]';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-48">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
