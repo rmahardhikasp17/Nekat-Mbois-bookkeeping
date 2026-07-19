@@ -13,8 +13,10 @@ import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 import { useBusinessData } from '@/hooks/useBusinessData';
 import type { BusinessData } from '@/types';
 import VisualData from '../components/VisualData';
+import ProductSales from '../components/ProductSales';
+import ProductManager from '../components/ProductManager';
 
-type FullPage = AppPage | 'employees' | 'transactions' | 'services' | 'visual-data';
+type FullPage = AppPage | 'employees' | 'transactions' | 'services' | 'visual-data' | 'product-sales' | 'products';
 
 const PAGE_TITLES: Record<FullPage, string> = {
   'dashboard':      'Beranda',
@@ -26,6 +28,8 @@ const PAGE_TITLES: Record<FullPage, string> = {
   'transactions':   'Transaksi',
   'services':       'Layanan',
   'visual-data':    'Visual Data',
+  'product-sales':  'Penjualan Produk',
+  'products':       'Kelola Produk',
 };
 
 const Index = () => {
@@ -92,6 +96,10 @@ const Index = () => {
             setCurrentPage={(page: string) => setCurrentPage(page as FullPage)}
           />
         );
+      case 'product-sales':
+        return <ProductSales businessData={businessData} updateBusinessData={updateBusinessData} />;
+      case 'products':
+        return <ProductManager businessData={businessData} updateBusinessData={updateBusinessData} />;
       default:
         return (
           <Dashboard

@@ -14,7 +14,8 @@ interface Transaction {
 }
 
 interface BusinessData {
-  transactions: Record<string, Transaction>;
+  transactions: Transaction[];
+  [key: string]: any;
 }
 
 interface TransactionFormProps {
@@ -44,10 +45,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ businessData, updateB
       amount: parseFloat(amount),
     };
 
-    const updatedTransactions = {
-      ...businessData.transactions,
-      [newTransaction.id]: newTransaction,
-    };
+    const existing = Array.isArray(businessData.transactions) ? businessData.transactions : [];
+    const updatedTransactions = [...existing, newTransaction];
 
     updateBusinessData({ transactions: updatedTransactions });
     setTransactionType('');
@@ -151,11 +150,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ businessData, updateB
       </form>
 
       {/* Recent Transactions */}
-      {businessData.transactions && Object.keys(businessData.transactions).length > 0 && (
+      {Array.isArray(businessData.transactions) && businessData.transactions.length > 0 && (
         <div className="bg-card rounded-xl p-5 md:p-6 border border-border shadow-sm">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Recent Transactions</h3>
           <div className="space-y-2">
-            {Object.values(businessData.transactions)
+            {[...businessData.transactions]
               .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
               .slice(0, 5)
               .map((transaction) => (

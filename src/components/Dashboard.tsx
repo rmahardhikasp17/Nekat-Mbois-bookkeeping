@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Scissors, Users, DollarSign, Calendar, ArrowRight } from 'lucide-react';
+import { Scissors, Users, DollarSign, Calendar, ArrowRight, Package, ShoppingCart } from 'lucide-react';
 import { getTodayTotal, getTodayProductSales, getTotalProducts, formatCurrency } from '../utils/formatters';
 
 
@@ -74,6 +74,22 @@ const Dashboard: React.FC<DashboardProps> = ({ businessData, setCurrentPage }) =
       color: 'hover:border-blue-500 hover:bg-blue-500/5',
       emoji: '👥',
       action: () => setCurrentPage('employees')
+    },
+    {
+      title: 'Kelola Produk',
+      description: 'Tambah atau kelola stok produk',
+      icon: Package,
+      color: 'hover:border-indigo-500 hover:bg-indigo-500/5',
+      emoji: '📦',
+      action: () => setCurrentPage('products')
+    },
+    {
+      title: 'Penjualan Produk',
+      description: 'Catat transaksi penjualan produk',
+      icon: ShoppingCart,
+      color: 'hover:border-amber-500 hover:bg-amber-500/5',
+      emoji: '🛒',
+      action: () => setCurrentPage('product-sales')
     },
     {
       title: 'Input Pendapatan',

@@ -17,21 +17,7 @@ import {
 import { Calendar, TrendingUp, Users, Scissors, DollarSign, Wallet, ArrowLeft } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { calculateMonthlyOwnerSalary, OWNER_DAILY_SAVINGS } from '@/utils/salaryCalculator';
-
-interface BusinessData {
-  services: any[];
-  employees: any[];
-  dailyRecords: any[];
-  transactions: any[];
-  productSales?: any[];
-  urgentOverrides?: Record<string, {
-    totalPendapatan?: number;
-    totalPengeluaran?: number;
-    totalGajiDibayarkan?: number;
-    tabunganOwner?: number;
-    pendapatanProduk?: number;
-  }>;
-}
+import type { BusinessData } from '@/types';
 
 interface VisualDataProps {
   businessData: BusinessData;

@@ -103,6 +103,7 @@ export interface MonthlyOverride {
 }
 
 export interface BusinessData {
+  [key: string]: any;
   businessName: string;
   employees: Employee[];
   services: Service[];

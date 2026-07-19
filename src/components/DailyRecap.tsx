@@ -8,6 +8,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { calculateSalary } from '@/utils/salaryCalculator';
 
 interface Service {
   id: string;
@@ -82,9 +83,33 @@ const DailyRecap: React.FC<DailyRecapProps> = ({ businessData, updateBusinessDat
   const startEditRecord = (record: DailyRecord) => {
     const key = `${record.date}_${record.employeeId}`;
     setEditingKey(key);
-    setEditServices({ ...(record.services || {}) });
-    setEditBonusServices({ ...(record.bonusServices || {}) });
-    setEditBonusQuantities({ ...(record.bonusQuantities || {}) });
+    
+    // Map ServiceEntry[] -> Record<string, number>
+    const servicesMap: Record<string, number> = {};
+    if (Array.isArray(record.services)) {
+      record.services.forEach(s => {
+        servicesMap[s.serviceId] = s.qty;
+      });
+    }
+    setEditServices(servicesMap);
+
+    // Map BonusEntry[] -> Record<string, Record<string, boolean>> and Record<string, Record<string, number>>
+    const bonusServicesMap: Record<string, Record<string, boolean>> = {};
+    const bonusQuantitiesMap: Record<string, Record<string, number>> = {};
+    
+    if (Array.isArray(record.bonusServices) && Array.isArray(record.services) && record.services.length > 0) {
+      const firstMainServiceId = record.services[0].serviceId;
+      bonusServicesMap[firstMainServiceId] = {};
+      bonusQuantitiesMap[firstMainServiceId] = {};
+      
+      record.bonusServices.forEach(b => {
+        bonusServicesMap[firstMainServiceId][b.serviceId] = true;
+        bonusQuantitiesMap[firstMainServiceId][b.serviceId] = b.qty;
+      });
+    }
+    
+    setEditBonusServices(bonusServicesMap);
+    setEditBonusQuantities(bonusQuantitiesMap);
   };
 
   const cancelEdit = () => {
@@ -256,20 +281,72 @@ const DailyRecap: React.FC<DailyRecapProps> = ({ businessData, updateBusinessDat
 
   const saveRecord = (record: DailyRecord) => {
     if (!updateBusinessData) return;
-    // Edit mode di DailyRecap untuk record v2.1 hanya memperbarui layanan utama (via Stepper)
-    // Karena DailyRecap masih pakai format lama untuk edit, untuk sekarang kita hanya
-    // update updatedAt dan pertahankan data lainnya
+
+    // 1. Build ServiceEntry[] from editServices state
+    const newServices: ServiceEntry[] = [];
+    Object.entries(editServices).forEach(([serviceId, qty]) => {
+      if (qty <= 0) return;
+      const service = businessData.services.find(s => s.id === serviceId);
+      if (service) {
+        newServices.push({
+          serviceId,
+          serviceName: service.name,
+          price: service.price,
+          qty,
+          subtotal: service.price * qty,
+          employeeRate: service.employeeRate ?? 50,
+        });
+      }
+    });
+
+    // 2. Build BonusEntry[] from editBonusServices and editBonusQuantities states
+    const newBonusServices: BonusEntry[] = [];
+    Object.entries(editBonusServices).forEach(([mainServiceId, bonusMap]) => {
+      Object.entries(bonusMap).forEach(([bonusId, isEnabled]) => {
+        if (!isEnabled) return;
+        const qty = editBonusQuantities[mainServiceId]?.[bonusId] || 0;
+        if (qty <= 0) return;
+        const service = businessData.services.find(s => s.id === bonusId);
+        if (service) {
+          newBonusServices.push({
+            serviceId: bonusId,
+            serviceName: service.name,
+            price: service.price,
+            qty,
+            subtotal: service.price * qty,
+          });
+        }
+      });
+    });
+
+    // 3. Calculate salary and shares
+    const { salary, grossRevenue, employeeRevenue, ownerShareFromEmployee, totalBonus, savingsDeduction } = calculateSalary(
+      newServices,
+      newBonusServices,
+      record.employeeRole as 'Owner' | 'Karyawan'
+    );
+
     const now = new Date().toISOString();
     const updatedRecord: DailyRecord = {
       ...record,
+      services: newServices,
+      bonusServices: newBonusServices,
+      totalRevenue: grossRevenue,
+      totalBonus,
+      employeeRevenue,
+      ownerShareFromEmployee,
+      calculatedSalary: salary,
+      savingsDeduction,
       updatedAt: now,
     };
+
     const existing = Array.isArray(businessData.dailyRecords) ? businessData.dailyRecords : [];
     const updated = existing.map(r =>
       (r.date === record.date && r.employeeId === record.employeeId ? updatedRecord : r)
     );
     updateBusinessData({ dailyRecords: updated });
     cancelEdit();
+    toast.success('Perubahan berhasil disimpan');
   };
 
   return (
