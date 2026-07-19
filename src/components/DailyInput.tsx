@@ -117,8 +117,8 @@ const DailyInput: React.FC<DailyInputProps> = ({ businessData, updateBusinessDat
     }
     const role = (selectedEmployee.role === 'Owner' || selectedEmployee.role === 'Karyawan')
       ? selectedEmployee.role : 'Karyawan';
-    return calculateSalary(activeServiceEntries, activeBonusEntries, role as 'Owner' | 'Karyawan');
-  }, [selectedEmployee, activeServiceEntries, activeBonusEntries]);
+    return calculateSalary(activeServiceEntries, activeBonusEntries, role as 'Owner' | 'Karyawan', businessData.ownerDailySavings);
+  }, [selectedEmployee, activeServiceEntries, activeBonusEntries, businessData.ownerDailySavings]);
 
   const hasAnyQty = activeServiceEntries.length > 0 || activeBonusEntries.length > 0;
 
@@ -389,7 +389,7 @@ const DailyInput: React.FC<DailyInputProps> = ({ businessData, updateBusinessDat
                 </p>
                 {selectedEmployee.role === 'Owner' && (
                   <p className="text-[10px] text-muted-foreground">
-                    Tabungan hari ini: {formatRupiah(OWNER_DAILY_SAVINGS)} dipotong
+                    Tabungan hari ini: {formatRupiah(businessData.ownerDailySavings ?? OWNER_DAILY_SAVINGS)} dipotong
                   </p>
                 )}
               </div>

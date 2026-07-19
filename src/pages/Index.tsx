@@ -9,7 +9,7 @@ import MonthlyReport from '../components/MonthlyReport';
 import Settings from '../components/Settings';
 import { BottomNav } from '@/components/BottomNav';
 import type { AppPage } from '@/components/BottomNav';
-import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
+
 import { useBusinessData } from '@/hooks/useBusinessData';
 import type { BusinessData } from '@/types';
 import VisualData from '../components/VisualData';
@@ -34,7 +34,7 @@ const PAGE_TITLES: Record<FullPage, string> = {
 
 const Index = () => {
   const [currentPage, setCurrentPage] = useState<FullPage>('dashboard');
-  const { data: businessData, updateData, isLoading } = useBusinessData();
+  const { data: businessData, updateData, isLoading, dbError } = useBusinessData();
 
   /**
    * Adapter API lama: updateBusinessData(partial) → updater function.
@@ -116,6 +116,13 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* ─── DB Error Banner ─────────────────────────────────────────────────── */}
+      {dbError && (
+        <div className="sticky top-0 z-50 bg-destructive/90 text-destructive-foreground text-xs px-4 py-2.5 flex items-center gap-2">
+          <span>⚠️</span>
+          <span>{dbError}</span>
+        </div>
+      )}
       {/* ─── Sticky Header ──────────────────────────────────────────────────── */}
       <header
         className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border"
@@ -156,7 +163,6 @@ const Index = () => {
         onNavigate={(page) => setCurrentPage(page)}
       />
 
-      <PWAInstallPrompt />
     </div>
   );
 };

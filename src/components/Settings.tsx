@@ -74,6 +74,32 @@ const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData, s
   const [storageInfo, setStorageInfo] = useState<StorageEstimate | null>(null);
   /** Draft bagi hasil lokal — nilai ini hanya di-commit ke storage saat user klik Simpan */
   const [draftRates, setDraftRates] = useState<Record<string, number>>({});
+  /** File backup yang dipilih, menunggu konfirmasi sebelum diproses */
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
+  /** Kontrol buka/tutup dialog konfirmasi import */
+  const [importDialogOpen, setImportDialogOpen] = useState<boolean>(false);
+  /** Kontrol buka/tutup dialog konfirmasi hapus semua data */
+  const [clearAllDialogOpen, setClearAllDialogOpen] = useState<boolean>(false);
+  /** Input teks konfirmasi untuk menghapus semua data */
+  const [confirmText, setConfirmText] = useState<string>('');
+  /** Input nominal tabungan harian owner */
+  const [ownerSavingsInput, setOwnerSavingsInput] = useState<string>(
+    String((businessData as any).ownerDailySavings ?? 50000)
+  );
+
+  useEffect(() => {
+    setOwnerSavingsInput(String((businessData as any).ownerDailySavings ?? 50000));
+  }, [(businessData as any).ownerDailySavings]);
+
+  const handleSaveOwnerSavings = () => {
+    const val = parseInt(ownerSavingsInput, 10);
+    if (isNaN(val) || val < 0) {
+      toast.error('Nominal tabungan harian tidak valid');
+      return;
+    }
+    updateBusinessData({ ownerDailySavings: val });
+    toast.success('Nominal tabungan harian owner berhasil disimpan');
+  };
 
   const lastBackupTs = useMemo<number | null>(() => {
     try { return Number(localStorage.getItem('autoBackupLastTs')) || null; } catch (_) { return null; }
@@ -112,6 +138,7 @@ const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData, s
       dailyRecords: [], transactions: [], productSales: [], sisaPendapatanRecords: [],
     });
     toast.success('Semua data berhasil dihapus');
+    setClearAllDialogOpen(false);
   };
 
   const handleExportJSON = async () => {
@@ -123,18 +150,40 @@ const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData, s
     }
   };
 
-  const handleImportJSON = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Langkah 1 — user memilih file: simpan ke state pending, buka dialog konfirmasi.
+   * Data BELUM diubah sampai user menekan konfirmasi.
+   */
+  const handleImportFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setPendingImportFile(file);
+    setImportDialogOpen(true);
+    // Reset input agar file yang sama bisa dipilih lagi jika diperlukan
+    e.target.value = '';
+  };
+
+  /**
+   * Langkah 2 — user menekan konfirmasi di dialog: baru jalankan restore.
+   */
+  const handleConfirmImport = async () => {
+    if (!pendingImportFile) return;
     try {
-      const data = await importJSONFile(file);
+      const data = await importJSONFile(pendingImportFile);
       updateBusinessData(data as Partial<BusinessData>);
       toast.success('Data berhasil dipulihkan dari backup');
     } catch {
       toast.error('File backup tidak valid atau rusak');
     } finally {
-      e.target.value = '';
+      setPendingImportFile(null);
+      setImportDialogOpen(false);
     }
+  };
+
+  /** Langkah batal — tutup dialog dan buang file pending */
+  const handleCancelImport = () => {
+    setPendingImportFile(null);
+    setImportDialogOpen(false);
   };
 
   const requestPersistentStorage = async () => {
@@ -323,6 +372,33 @@ const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData, s
         </SectionCard>
       )}
 
+      {/* Configurable Owner Daily Savings */}
+      <SectionCard icon={Save} title="Tabungan Harian Owner">
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Nominal tabungan harian yang dipotong dari total pendapatan owner setiap hari kerja.
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              value={ownerSavingsInput}
+              onChange={(e) => setOwnerSavingsInput(e.target.value)}
+              className={inputClass}
+              placeholder="Contoh: 50000"
+              min={0}
+              aria-label="Nominal tabungan harian owner"
+            />
+            <Button
+              onClick={handleSaveOwnerSavings}
+              disabled={Number(ownerSavingsInput) === ((businessData as any).ownerDailySavings ?? 50000)}
+              className="min-h-[48px] px-6"
+            >
+              Simpan
+            </Button>
+          </div>
+        </div>
+      </SectionCard>
+
       <SectionCard icon={Info} title="Ringkasan Data">
         <div className="grid grid-cols-3 gap-2">
           {[
@@ -381,6 +457,7 @@ const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData, s
             <Download className="w-4 h-4" />
             Download {useGzip ? 'JSON (gzip)' : 'JSON'}
           </Button>
+          {/* ── Restore dengan dialog konfirmasi dua-langkah ─────────────── */}
           <label className="w-full">
             <Button asChild variant="outline" className="w-full min-h-[48px] justify-start gap-2 cursor-pointer">
               <span>
@@ -392,9 +469,37 @@ const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData, s
               type="file"
               accept=".json,.gz,application/json,application/gzip"
               className="hidden"
-              onChange={handleImportJSON}
+              onChange={handleImportFileSelected}
             />
           </label>
+
+          {/* Dialog konfirmasi — hanya muncul setelah file dipilih */}
+          <AlertDialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Pulihkan data dari backup?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Menimpa data aktif saat ini dengan data cadangan.{' '}
+                  <strong>Semua transaksi berjalan kamu akan hilang.</strong>{' '}
+                  {pendingImportFile && (
+                    <span className="block mt-1 text-muted-foreground">
+                      File: <span className="font-medium text-foreground">{pendingImportFile.name}</span>
+                    </span>
+                  )}
+                  Pastikan sudah melakukan backup terbaru sebelum melanjutkan.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={handleCancelImport}>Batal</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleConfirmImport}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Ya, Pulihkan Data
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </SectionCard>
 
@@ -459,7 +564,10 @@ const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData, s
           <p className="text-xs text-destructive/80">
             Menghapus seluruh data layanan, karyawan, dan catatan harian secara permanen.
           </p>
-          <AlertDialog>
+          <AlertDialog open={clearAllDialogOpen} onOpenChange={(open) => {
+            setClearAllDialogOpen(open);
+            if (open) setConfirmText('');
+          }}>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" className="w-full min-h-[48px] gap-2">
                 <Trash2 className="w-4 h-4" /> Hapus Semua Data
@@ -468,16 +576,30 @@ const Settings: React.FC<SettingsProps> = ({ businessData, updateBusinessData, s
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Hapus semua data?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Seluruh layanan, karyawan, dan catatan harian akan dihapus permanen.
-                  Pastikan sudah melakukan backup sebelum melanjutkan.
+                <AlertDialogDescription className="space-y-3">
+                  <span>
+                    Seluruh layanan, karyawan, dan catatan harian akan dihapus permanen.
+                    Pastikan sudah melakukan backup sebelum melanjutkan.
+                  </span>
+                  <span className="block font-medium text-destructive mt-2">
+                    Ketik HAPUS untuk mengkonfirmasi penghapusan semua data.
+                  </span>
+                  <input
+                    type="text"
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    placeholder="Ketik HAPUS"
+                    className="w-full mt-2 rounded-lg bg-background border border-border px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    aria-label="Konfirmasi hapus semua data"
+                  />
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Batal</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleClearAllData}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={confirmText !== 'HAPUS'}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Ya, Hapus Semua
                 </AlertDialogAction>

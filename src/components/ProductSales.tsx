@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ShoppingCart, Plus, Save, Trash2, Package, X } from 'lucide-react';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, getLocalDateString } from '../utils/formatters';
 import { generateId } from '@/utils/idGenerator';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -60,7 +60,7 @@ const ProductSales: React.FC<ProductSalesProps> = ({ businessData, updateBusines
       : [];
 
   const [newSale, setNewSale] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     productId: '',
     quantity: 1,
     unitPrice: '',
@@ -68,7 +68,7 @@ const ProductSales: React.FC<ProductSalesProps> = ({ businessData, updateBusines
   });
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   const todaySales = salesArray.filter(sale => sale.date === today);
 
   const handleProductChange = (productId: string) => {
@@ -280,7 +280,7 @@ const ProductSales: React.FC<ProductSalesProps> = ({ businessData, updateBusines
                 onClick={() => {
                   setShowAddForm(false);
                   setNewSale({
-                    date: today,
+                    date: getLocalDateString(),
                     productId: '',
                     quantity: 1,
                     unitPrice: '',

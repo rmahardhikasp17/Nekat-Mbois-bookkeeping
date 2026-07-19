@@ -14,13 +14,25 @@ export function formatCurrency(value: number | string): string {
 }
 
 /**
+ * Mengembalikan tanggal hari ini dalam format YYYY-MM-DD menggunakan
+ * LOCAL timezone (bukan UTC). Menggantikan anti-pattern toISOString().split('T')[0]
+ * yang salah untuk timezone UTC+7 antara jam 00:00-06:59 WIB.
+ */
+export function getLocalDateString(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
  * Hitung total pendapatan layanan + bonus hari ini dari semua karyawan.
  * Digunakan oleh Dashboard untuk menampilkan pendapatan harian.
  */
 export function getTodayTotal(
   businessData: Pick<BusinessData, 'dailyRecords' | 'services'>
 ): number {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
 
   // dailyRecords bisa array (v2) atau Record (v1 legacy)
   const records = Array.isArray(businessData.dailyRecords)
@@ -33,8 +45,20 @@ export function getTodayTotal(
       }>).filter((r) => r.date === today);
 
   return records.reduce((sum, record) => {
+    // ── v2.1: services adalah ServiceEntry[] — jumlahkan subtotal langsung ──
+    if (Array.isArray(record.services)) {
+      const serviceRevenue = record.services.reduce(
+        (s: number, e: any) => s + (e.subtotal ?? 0), 0
+      );
+      const bonusRevenue = Array.isArray(record.bonusServices)
+        ? record.bonusServices.reduce((s: number, b: any) => s + (b.subtotal ?? 0), 0)
+        : 0;
+      return sum + serviceRevenue + bonusRevenue;
+    }
+
+    // ── v1 legacy: services adalah Record<serviceId, qty> ─────────────────
     const serviceRevenue = Object.entries(
-      Array.isArray(record.services) ? {} : (record.services as Record<string, number>)
+      record.services as Record<string, number>
     )
       .filter(([, qty]) => Number(qty) > 0)
       .reduce((serviceSum, [serviceId, qty]) => {
@@ -44,7 +68,7 @@ export function getTodayTotal(
       }, 0);
 
     let bonusTotal = 0;
-    if (!Array.isArray(record.services) && record.bonusServices && record.bonusQuantities) {
+    if (record.bonusServices && record.bonusQuantities) {
       Object.entries(record.bonusServices ?? {}).forEach(([serviceId, bonusData]) => {
         Object.entries(bonusData ?? {}).forEach(([bonusId, isEnabled]) => {
           if (isEnabled) {
@@ -67,12 +91,16 @@ export function getTodayTotal(
 export function getTodayProductSales(
   businessData: Pick<BusinessData, 'productSales'>
 ): number {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   const sales = businessData.productSales;
-  if (!sales || Array.isArray(sales)) return 0;
-  return Object.values(sales as Record<string, { date: string; total: number }>)
-    .filter((sale) => sale.date === today)
-    .reduce((sum, sale) => sum + sale.total, 0);
+  if (!sales) return 0;
+  // Mendukung format array (baru) dan object map (lama)
+  const salesArray = Array.isArray(sales)
+    ? sales
+    : Object.values(sales as Record<string, { date: string; total: number }>);
+  return salesArray
+    .filter((sale: any) => sale.date === today)
+    .reduce((sum: number, sale: any) => sum + (sale.total || 0), 0);
 }
 
 /**

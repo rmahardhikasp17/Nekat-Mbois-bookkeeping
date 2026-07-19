@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Download, User, DollarSign, Edit, Trash, Save, X } from 'lucide-react';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, getLocalDateString } from '../utils/formatters';
 import { exportDailyRecapToExcel } from '../utils/backupManager';
 import { toast } from 'sonner';
 import {
@@ -70,7 +70,7 @@ interface DailyRecapProps {
 }
 
 const DailyRecap: React.FC<DailyRecapProps> = ({ businessData, updateBusinessData }) => {
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(getLocalDateString());
 
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editServices, setEditServices] = useState<Record<string, number>>({});
@@ -323,7 +323,8 @@ const DailyRecap: React.FC<DailyRecapProps> = ({ businessData, updateBusinessDat
     const { salary, grossRevenue, employeeRevenue, ownerShareFromEmployee, totalBonus, savingsDeduction } = calculateSalary(
       newServices,
       newBonusServices,
-      record.employeeRole as 'Owner' | 'Karyawan'
+      record.employeeRole as 'Owner' | 'Karyawan',
+      businessData.ownerDailySavings
     );
 
     const now = new Date().toISOString();

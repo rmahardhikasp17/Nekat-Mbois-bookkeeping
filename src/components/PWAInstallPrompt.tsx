@@ -19,6 +19,12 @@ export function PWAInstallPrompt() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    // Jika sudah ter-install sebagai PWA, jangan tampilkan dan jangan pasang listener
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      ('standalone' in window.navigator && (window.navigator as Record<string, unknown>)['standalone'] === true);
+    if (isStandalone) return;
+
     // Jangan tampilkan jika user sudah pernah dismiss dalam 7 hari
     const dismissedAt = localStorage.getItem(DISMISSED_KEY);
     if (dismissedAt) {
@@ -32,12 +38,6 @@ export function PWAInstallPrompt() {
       setVisible(true);
     };
     window.addEventListener('beforeinstallprompt', handler);
-
-    // Jika sudah ter-install sebagai PWA, jangan tampilkan
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      ('standalone' in window.navigator && (window.navigator as Record<string, unknown>)['standalone'] === true);
-    if (isStandalone) return;
 
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);

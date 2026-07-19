@@ -120,6 +120,8 @@ export interface BusinessData {
     tabunganOwner?: number;
     pendapatanProduk?: number;
   }>;
+  /** Nominal tabungan harian owner (default 50000). Bisa dikonfigurasi di Settings. */
+  ownerDailySavings: number;
   lastSaved: string;
   version: string;
 }
@@ -135,6 +137,7 @@ export const DEFAULT_BUSINESS_DATA: BusinessData = {
   productSales: [],
   sisaPendapatanRecords: [],
   urgentOverrides: {},
+  ownerDailySavings: 50_000,
   lastSaved: new Date().toISOString(),
   version: '2.1.0',
 };

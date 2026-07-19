@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Calendar, DollarSign, FileText, Save } from 'lucide-react';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, getLocalDateString } from '../utils/formatters';
 import { generateId } from '../utils/idGenerator';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,8 @@ interface TransactionFormProps {
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({ businessData, updateBusinessData }) => {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  // 3.1: getLocalDateString() menghindari off-by-one UTC antara 00:00–06:59 WIB
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [transactionType, setTransactionType] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');

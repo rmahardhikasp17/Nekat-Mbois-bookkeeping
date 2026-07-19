@@ -74,20 +74,19 @@ const VisualData: React.FC<VisualDataProps> = ({ businessData, setCurrentPage })
     const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
     const endDate = new Date(parseInt(year), parseInt(month), 0);
 
-    const monthlyRecords = (businessData.dailyRecords || []).filter((record: any) => {
-      const recordDate = new Date(record.date);
-      return recordDate >= startDate && recordDate <= endDate;
-    });
+    // 3.4: Gunakan string prefix matching menghindari timezone mismatch pada
+    // hari terakhir bulan (UTC parse bisa mundur 1 hari untuk WIB)
+    const monthlyRecords = (businessData.dailyRecords || []).filter((record: any) =>
+      typeof record.date === 'string' && record.date.startsWith(selectedMonth)
+    );
 
-    const monthlyTransactions = (businessData.transactions || []).filter((transaction: any) => {
-      const transactionDate = new Date(transaction.date);
-      return transactionDate >= startDate && transactionDate <= endDate;
-    });
+    const monthlyTransactions = (businessData.transactions || []).filter((transaction: any) =>
+      typeof transaction.date === 'string' && transaction.date.startsWith(selectedMonth)
+    );
 
-    const monthlyProductSales = (businessData.productSales || []).filter((sale: any) => {
-      const saleDate = new Date(sale.date);
-      return saleDate >= startDate && saleDate <= endDate;
-    });
+    const monthlyProductSales = (businessData.productSales || []).filter((sale: any) =>
+      typeof sale.date === 'string' && sale.date.startsWith(selectedMonth)
+    );
 
     // 1. Generate Timeline Data (Daily breakdown)
     const daysInMonth = endDate.getDate();
@@ -143,14 +142,18 @@ const VisualData: React.FC<VisualDataProps> = ({ businessData, setCurrentPage })
 
     const timelineData = Object.values(timelineMap);
 
-    // 2. Owner Salary Breakdown calculations
-    const ownerRecords = monthlyRecords.filter(record => {
-      const employee = businessData.employees?.find(emp => emp.id === record.employeeId);
+    // 3.5: Gunakan snapshot employeeRole (field di record) agar karyawan resign
+    // tidak terhapus dari laporan historis
+    const ownerRecords = monthlyRecords.filter((record: any) => {
+      if (record.employeeRole) return record.employeeRole === 'Owner';
+      // Fallback ke live lookup untuk record lama yang belum punya snapshot
+      const employee = businessData.employees?.find((emp: any) => emp.id === record.employeeId);
       return employee?.role === 'Owner';
     });
 
-    const karyawanRecords = monthlyRecords.filter(record => {
-      const employee = businessData.employees?.find(emp => emp.id === record.employeeId);
+    const karyawanRecords = monthlyRecords.filter((record: any) => {
+      if (record.employeeRole) return record.employeeRole === 'Karyawan';
+      const employee = businessData.employees?.find((emp: any) => emp.id === record.employeeId);
       return employee?.role === 'Karyawan';
     });
 
@@ -170,6 +173,7 @@ const VisualData: React.FC<VisualDataProps> = ({ businessData, setCurrentPage })
       ownerShareFromAllEmployees: ownerShareFromEmployees,
       ownerBonus,
       ownerAttendanceDays: ownerRecords.length,
+      ownerDailySavings: businessData.ownerDailySavings,
     });
 
     // 3. Employee salary calculations
@@ -186,9 +190,13 @@ const VisualData: React.FC<VisualDataProps> = ({ businessData, setCurrentPage })
 
       const totalBonus = empRecords.reduce((sum: number, record: any) => sum + getBonusRevenue(record), 0);
 
+      // 3.3: Hanya tambah totalBonus jika TIDAK ada calculatedSalary (record lama / fallback).
+      // calculatedSalary sudah menyertakan bonus — menambahkan lagi = double-count.
+      const hasCalculatedSalary = empRecords.some((r: any) => typeof r.calculatedSalary === 'number');
+
       return {
         name: employee?.name || 'Karyawan',
-        gaji: totalGajiSesi + totalBonus,
+        gaji: hasCalculatedSalary ? totalGajiSesi : totalGajiSesi + totalBonus,
       };
     });
 

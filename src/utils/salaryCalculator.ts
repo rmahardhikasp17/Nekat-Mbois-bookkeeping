@@ -57,14 +57,17 @@ export function calculateBonus(bonusServices: BonusEntry[]): number {
  * Hitung gaji bersih berdasarkan services, bonus, dan role.
  *
  * - Karyawan: gaji = employeeRevenue (setelah split) + bonus
- * - Owner:    gaji = grossRevenue (penuh) - OWNER_DAILY_SAVINGS + bonus
+ * - Owner:    gaji = grossRevenue (penuh) - tabunganHarian + bonus
  *
+ * @param ownerDailySavings - Nominal tabungan harian owner. Jika tidak diberikan,
+ *                            gunakan OWNER_DAILY_SAVINGS (50K) sebagai fallback.
  * @returns Objek detail breakdown untuk UI dan penyimpanan record
  */
 export function calculateSalary(
   services: ServiceEntry[],
   bonusServices: BonusEntry[],
-  role: EmployeeRole
+  role: EmployeeRole,
+  ownerDailySavings?: number
 ): {
   salary: number;
   grossRevenue: number;
@@ -75,6 +78,7 @@ export function calculateSalary(
 } {
   const grossRevenue = calculateGrossRevenue(services);
   const totalBonus = calculateBonus(bonusServices);
+  const savings = ownerDailySavings ?? OWNER_DAILY_SAVINGS;
 
   if (role === 'Karyawan') {
     const employeeRevenue = calculateEmployeeRevenue(services);
@@ -90,12 +94,12 @@ export function calculateSalary(
 
   // Owner: mendapat gross revenue penuh dari layanannya sendiri
   return {
-    salary: grossRevenue - OWNER_DAILY_SAVINGS + totalBonus,
+    salary: grossRevenue - savings + totalBonus,
     grossRevenue,
     employeeRevenue: grossRevenue, // Owner dapat 100% revenue sendiri
     ownerShareFromEmployee: 0,     // Owner tidak share dari dirinya
     totalBonus,
-    savingsDeduction: OWNER_DAILY_SAVINGS,
+    savingsDeduction: savings,
   };
 }
 
@@ -111,15 +115,18 @@ export function calculateSalary(
  * jadi laporan historis tidak terpengaruh perubahan rate di masa depan.
  *
  * @param ownerShareFromAllEmployees - Σ ownerShareFromEmployee dari semua record Karyawan bulan ini
+ * @param ownerDailySavings - Nominal tabungan harian owner. Fallback ke OWNER_DAILY_SAVINGS.
  */
 export function calculateMonthlyOwnerSalary(params: {
   ownerOwnRevenue: number;
   ownerShareFromAllEmployees: number;
   ownerBonus: number;
   ownerAttendanceDays: number;
+  ownerDailySavings?: number;
 }): { salary: number; savings: number } {
   const { ownerOwnRevenue, ownerShareFromAllEmployees, ownerBonus, ownerAttendanceDays } = params;
-  const savings = OWNER_DAILY_SAVINGS * ownerAttendanceDays;
+  const dailySavings = params.ownerDailySavings ?? OWNER_DAILY_SAVINGS;
+  const savings = dailySavings * ownerAttendanceDays;
   return {
     salary: ownerOwnRevenue + ownerShareFromAllEmployees + ownerBonus - savings,
     savings,

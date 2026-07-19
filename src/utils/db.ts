@@ -167,6 +167,21 @@ export function exportToJSON(data: BusinessData): void {
 }
 
 /**
+ * Validasi skema minimal BusinessData.
+ * Mencegah crash layar putih akibat tipe field yang salah
+ * (misal: "employees": "bukan array").
+ *
+ * @returns true jika data aman diproses, false jika skema tidak valid
+ */
+export function validateBusinessData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  if (data.employees && !Array.isArray(data.employees)) return false;
+  if (data.services && !Array.isArray(data.services)) return false;
+  if (data.dailyRecords && !Array.isArray(data.dailyRecords)) return false;
+  return true;
+}
+
+/**
  * Import dan parse file JSON backup.
  * Lakukan validasi minimal dan merge dengan DEFAULT_BUSINESS_DATA
  * agar field baru (dari upgrade versi) terisi dengan default.
@@ -180,6 +195,11 @@ export async function importFromJSON(file: File): Promise<BusinessData> {
         // Validasi minimal: harus ada setidaknya satu dari field utama
         if (!parsed.employees && !parsed.dailyRecords && !parsed.services) {
           reject(new Error('Format file tidak valid'));
+          return;
+        }
+        // 3.2: Validasi skema — pastikan field utama bertipe Array (bukan string/object)
+        if (!validateBusinessData(parsed)) {
+          reject(new Error('Skema data tidak valid: field utama harus berupa Array'));
           return;
         }
         // Merge dengan default agar field baru (v2+) tidak undefined

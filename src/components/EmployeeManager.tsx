@@ -33,6 +33,13 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ businessData, updateB
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.role) return;
+    if (
+      formData.role === 'Owner' &&
+      businessData.employees.some((e) => e.role === 'Owner')
+    ) {
+      toast.warning('Sudah ada 1 Owner terdaftar. Sistem hanya mendukung 1 Owner.');
+      return;
+    }
     const newEmployee: Employee = {
       id: generateId(),
       name: formData.name.trim(),
@@ -51,6 +58,22 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ businessData, updateB
 
   const handleUpdate = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 2.3 — Tolak nama kosong atau spasi saja
+    if (!formData.name.trim()) {
+      toast.error('Nama tidak boleh kosong atau spasi saja');
+      return;
+    }
+
+    // 2.1 — Cegah multi-Owner: periksa karyawan LAIN (bukan yang sedang diedit)
+    if (
+      formData.role === 'Owner' &&
+      businessData.employees.some((emp) => emp.id !== editingId && emp.role === 'Owner')
+    ) {
+      toast.warning('Barbershop hanya boleh memiliki 1 Owner.');
+      return;
+    }
+
     const updated = businessData.employees.map(emp =>
       emp.id === editingId
         ? { ...emp, name: formData.name.trim(), role: formData.role }

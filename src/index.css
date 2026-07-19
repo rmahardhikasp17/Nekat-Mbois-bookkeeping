@@ -144,3 +144,14 @@
     padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* ─── Android Keyboard: sembunyikan bottom nav saat viewport menyusut ─────────
+   Keyboard virtual Android memperkecil tinggi layar (window.innerHeight).
+   Jika tinggi < 500px, bottom nav pasti sedang terdorong ke tengah layar
+   menutupi form yang aktif. Solusi: sembunyikan nav sementara.            ─── */
+@media (max-height: 500px) {
+  nav[role="navigation"] {
+    display: none !important;
+  }
+}
+

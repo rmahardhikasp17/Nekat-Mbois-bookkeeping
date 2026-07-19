@@ -38,10 +38,15 @@ const ServicesManager: React.FC<ServicesManagerProps> = ({ businessData, updateB
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.price) return;
+    const price = parseFloat(formData.price);
+    if (isNaN(price) || price < 0) {
+      toast.error('Harga layanan tidak boleh negatif');
+      return;
+    }
     const newService: Service = {
       id: generateId(),
       name: formData.name.trim(),
-      price: parseFloat(formData.price),
+      price,
       isBonusService: false,
       employeeRate: 50, // default 50/50, bisa diubah di Settings → Bagi Hasil
     };
@@ -58,9 +63,23 @@ const ServicesManager: React.FC<ServicesManagerProps> = ({ businessData, updateB
 
   const handleUpdate = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 2.3 — Tolak nama kosong atau spasi saja
+    if (!formData.name.trim()) {
+      toast.error('Nama tidak boleh kosong atau spasi saja');
+      return;
+    }
+
+    // 2.2 — Tolak harga negatif atau bukan angka (bypass paste/keyboard)
+    const price = parseFloat(formData.price);
+    if (isNaN(price) || price < 0) {
+      toast.error('Harga layanan tidak boleh bernilai negatif');
+      return;
+    }
+
     const updatedServices = businessData.services.map(s =>
       s.id === editingId
-        ? { ...s, name: formData.name.trim(), price: parseFloat(formData.price) }
+        ? { ...s, name: formData.name.trim(), price }
         : s
     );
     updateBusinessData({ services: updatedServices });
@@ -219,33 +238,48 @@ const ServicesManager: React.FC<ServicesManagerProps> = ({ businessData, updateB
                       <Edit className="w-4 h-4" />
                     </button>
                     {/* AlertDialog untuk konfirmasi hapus */}
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <button
-                          className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-destructive active:bg-destructive/10 transition-colors"
-                          aria-label={`Hapus ${service.name}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Hapus layanan ini?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            <strong>{service.name}</strong> akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Batal</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(service.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Hapus
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    {(() => {
+                      const isUsed = Array.isArray(businessData.dailyRecords) && businessData.dailyRecords.some((record: any) =>
+                        record.services?.some((s: any) => s.serviceId === service.id)
+                      );
+                      return (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button
+                              className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-destructive active:bg-destructive/10 transition-colors"
+                              aria-label={`Hapus ${service.name}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Hapus layanan ini?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {isUsed ? (
+                                  <span>
+                                    Layanan ini masih tercatat di riwayat transaksi. Menghapusnya tidak akan menghapus riwayat, tapi layanan tidak akan bisa dipilih lagi. Lanjutkan?
+                                  </span>
+                                ) : (
+                                  <span>
+                                    <strong>{service.name}</strong> akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.
+                                  </span>
+                                )}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Batal</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(service.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Hapus
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      );
+                    })()}
                   </div>
                 </div>
               )}

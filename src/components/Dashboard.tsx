@@ -97,7 +97,7 @@ const Dashboard: React.FC<DashboardProps> = ({ businessData, setCurrentPage }) =
       icon: DollarSign,
       color: 'hover:border-emerald-500 hover:bg-emerald-500/5',
       emoji: '💵',
-      action: () => setCurrentPage('daily-recap')
+      action: () => setCurrentPage('daily-input')
     }
   ];
 

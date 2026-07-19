@@ -121,13 +121,14 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ businessData }) => {
       const isOwner = employee?.role === 'Owner';
       const serviceRevenue = getServiceRevenue(record);
       const bonusTotal = getBonusRevenue(record);
-      if (isOwner) return sum + Math.max(0, serviceRevenue - OWNER_DAILY_SAVINGS + bonusTotal);
+      const savings = businessData.ownerDailySavings ?? OWNER_DAILY_SAVINGS;
+      if (isOwner) return sum + Math.max(0, serviceRevenue - savings + bonusTotal);
       return sum + serviceRevenue * 0.5 + bonusTotal;
     }, 0);
   };
   const calcTabunganOwnerForDate = (date: string) => {
     const ownerCount = (businessData.dailyRecords || []).filter((r: any) => r.date === date && (businessData.employees?.find((e: any) => e.id === r.employeeId)?.role === 'Owner')).length;
-    return ownerCount * OWNER_DAILY_SAVINGS;
+    return ownerCount * (businessData.ownerDailySavings ?? OWNER_DAILY_SAVINGS);
   };
 
   const calculateMonthlyReport = () => {
@@ -135,21 +136,18 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ businessData }) => {
     const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
     const endDate = new Date(parseInt(year), parseInt(month), 0);
     
-    // Filter data for the selected month
-    const monthlyRecords = (businessData.dailyRecords || []).filter((record: any) => {
-      const recordDate = new Date(record.date);
-      return recordDate >= startDate && recordDate <= endDate;
-    });
+    // Filter data for the selected month — pakai string prefix untuk menghindari timezone bug
+    const monthlyRecords = (businessData.dailyRecords || []).filter((record: any) =>
+      typeof record.date === 'string' && record.date.startsWith(selectedMonth)
+    );
 
-    const monthlyTransactions = (businessData.transactions || []).filter((transaction: any) => {
-      const transactionDate = new Date(transaction.date);
-      return transactionDate >= startDate && transactionDate <= endDate;
-    });
+    const monthlyTransactions = (businessData.transactions || []).filter((transaction: any) =>
+      typeof transaction.date === 'string' && transaction.date.startsWith(selectedMonth)
+    );
 
-    const monthlyProductSales = (businessData.productSales || []).filter((sale: any) => {
-      const saleDate = new Date(sale.date);
-      return saleDate >= startDate && saleDate <= endDate;
-    });
+    const monthlyProductSales = (businessData.productSales || []).filter((sale: any) =>
+      typeof sale.date === 'string' && sale.date.startsWith(selectedMonth)
+    );
 
     // 1. 🔢 Baseline Total Pendapatan - HANYA dari layanan murni + bonus (TIDAK termasuk produk)
     let totalPendapatan = monthlyRecords.reduce((sum: number, record: any) => {
@@ -168,14 +166,18 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ businessData }) => {
 
     // 3/6. Baseline gaji/tabungan akan dihitung di bawah, override diterapkan setelah baseline tersedia
 
-    // Separate records by role
-    const ownerRecords = monthlyRecords.filter(record => {
-      const employee = businessData.employees?.find(emp => emp.id === record.employeeId);
+    // Fix H10: Gunakan snapshot employeeRole agar record tetap terbaca
+    // meski karyawan sudah dihapus dari daftar
+    const ownerRecords = monthlyRecords.filter((record: any) => {
+      if (record.employeeRole) return record.employeeRole === 'Owner';
+      // Fallback ke live lookup untuk record lama yang belum punya snapshot
+      const employee = businessData.employees?.find((emp: any) => emp.id === record.employeeId);
       return employee?.role === 'Owner';
     });
 
-    const karyawanRecords = monthlyRecords.filter(record => {
-      const employee = businessData.employees?.find(emp => emp.id === record.employeeId);
+    const karyawanRecords = monthlyRecords.filter((record: any) => {
+      if (record.employeeRole) return record.employeeRole === 'Karyawan';
+      const employee = businessData.employees?.find((emp: any) => emp.id === record.employeeId);
       return employee?.role === 'Karyawan';
     });
 
@@ -206,6 +208,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ businessData }) => {
       ownerShareFromAllEmployees: ownerShareFromEmployees,
       ownerBonus,
       ownerAttendanceDays: ownerRecords.length,
+      ownerDailySavings: businessData.ownerDailySavings,
     });
     const ownerShareFromKaryawan = ownerShareFromEmployees; // untuk ownerBreakdown
 
@@ -227,8 +230,8 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ businessData }) => {
       const empRecords = karyawanRecords.filter(r => r.employeeId === empId);
       const employee = businessData.employees?.find(e => e.id === empId);
 
-      // Hitung total revenue dan bonus seluruh sesi dalam bulan ini
-      // v2.1: Gunakan employeeRevenue yang sudah di-snapshot jika tersedia
+      // Fix H1: calculatedSalary sudah termasuk bonus (dihitung di DailyRecap.saveRecord).
+      // Jika menggunakan calculatedSalary, JANGAN tambahkan totalBonus lagi.
       const totalGajiSesi = empRecords.reduce((sum: number, record: any) => {
         if (typeof record.calculatedSalary === 'number') return sum + record.calculatedSalary;
         if (typeof record.employeeRevenue === 'number') return sum + record.employeeRevenue;
@@ -239,11 +242,14 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ businessData }) => {
         sum + getBonusRevenue(record), 0
       );
 
+      // Hanya tambah totalBonus jika TIDAK ada calculatedSalary (record lama / fallback)
+      const hasCalculatedSalary = empRecords.some((r: any) => typeof r.calculatedSalary === 'number');
+
       return {
         employeeId: empId,
         name: employee?.name || 'Unknown',
         role: employee?.role || 'Unknown',
-        gaji: totalGajiSesi + totalBonus,
+        gaji: hasCalculatedSalary ? totalGajiSesi : totalGajiSesi + totalBonus,
         bonus: totalBonus,
         potongan: 0,
         uangHadir: 0
